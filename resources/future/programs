@@ -1,0 +1,64 @@
+:: palindromo x =
+  {reverso x x}
+
+:: doubleAppendo x y z r =
+  [t:
+    {appendo x y t} /\ {appendo t z r}]
+
+:: eveno x =
+  [z:
+    {addo z z x}]
+
+:: doubleo x xx =
+  {appendo x x xx}
+
+:: emptyAppendo x y =
+  {appendo [] x y}
+
+:: appendo123 x y =
+  {appendo (succ zero) % (succ (succ zero)) % (succ (succ (succ zero))) % [] x y}
+
+:: appendoXyz x y z t r =
+  {appendo x % y % z % [] t r}
+
+:: singletonReverso x y =
+  [l:
+    {lengtho x (succ zero)} /\ {reverso x y}]
+
+:: is5 x =
+  x ~ succ (succ (succ (succ (succ zero))))
+
+:: isNum x =
+  (x ~ zero) \/
+  [y:
+    x ~ succ y]
+
+:: check5 x =
+  {isNum x} /\ {is5 x}
+
+:: genLists x =
+  [y:
+    x ~ y % [] /\ {isNum y}] \/
+  [h t:
+    x ~ h % t /\ {isNum h} /\ {genLists t}]
+
+:: has5 x =
+  [h t:
+    (x ~ h % t /\ {is5 h}) \/
+    (x ~ h % t /\ {has5 t})]
+
+:: checkList5 x =
+  {has5 x} /\ {genLists x}
+
+:: checkList51 x =
+  {genLists x} /\ {has5 x}
+
+{-
+[x y z:
+  x ~ (succ (succ zero)) % (succ (succ (succ zero))) % (succ (succ (succ (succ zero)))) % [] /\
+    :: appendo a b =
+      a ~ [] /\ b ~ x \/
+      [c cs d ds:
+        a ~ c % cs /\ b ~ c % ds /\ {appendo cs ds}]
+    {appendo y z toList [0..5]}
+-}
