@@ -1,9 +1,11 @@
 {-# LANGUAGE DerivingStrategies #-}
 
 module Parser (
-      getStrAstWithDefGoal
-    , getProgAst
-    , getDefAsts
+      progAst
+    , strProgAstWithDefGoal
+    , defsAsts
+    , strDefAsts
+    , defAst
     ) where
 
 import           Control.Monad (void)
@@ -18,14 +20,23 @@ import qualified Text.Megaparsec.Char.Lexer as L
 
 -----------------------------------------------------------------------------------------------------
 
-getStrAstWithDefGoal :: String -> String
-getStrAstWithDefGoal = either errorBundlePretty (show . ($ V "a" === V "b")) . runParser parseProg ""
+progAst :: String -> Maybe (G X -> G X)
+progAst = either (const Nothing) Just . runParser parseProg ""
 
-getProgAst :: String -> Maybe (G X -> G X)
-getProgAst = either (const Nothing) Just . runParser parseProg ""
+strProgAstWithDefGoal :: String -> String
+strProgAstWithDefGoal = either errorBundlePretty (show . ($ defGoal)) . runParser parseProg ""
+  where
+    defGoal :: G X
+    defGoal = V "a" === V "b"
 
-getDefAsts :: String -> Maybe [G X -> G X]
-getDefAsts = either (const Nothing) Just . runParser parseDefs ""
+defsAsts :: String -> [Def]
+defsAsts = either (const []) id . runParser (many parseDef) ""
+
+strDefAsts :: String -> String
+strDefAsts = unlines . fmap show . defsAsts
+
+defAst :: String -> Maybe Def
+defAst = either (const Nothing) Just . runParser parseDef ""
 
 -----------------------------------------------------------------------------------------------------
 
@@ -181,23 +192,30 @@ parseDesugarGoal = sc
 
 
 -- definition
-parseLetDef :: Parser (G X -> G X)
-parseLetDef = do
+parseDef :: Parser Def
+parseDef = do
   symbol "::"
   name <- ident
   args <- many ident
   symbol "="
   goal <- parseGoal
-  return $ Let (name, args, goal)
+  return (name, args, goal)
 
 
 -- let
 parseLet :: Parser (G X)
 parseLet = curvyBr $ do
-  letDef  <- parseLetDef
+  def  <- parseDef
   symbol "$"
   goal <- curvyBr $ try parseGoal <|> roundBr parseGoal
-  return $ letDef goal
+  return $ Let def goal
+
+
+-- let without last goal
+parseLetDef :: Parser (G X -> G X)
+parseLetDef = do
+  def <- parseDef
+  return $ Let def
 
 
 -- program
@@ -205,7 +223,4 @@ parseProg :: Parser (G X -> G X)
 parseProg = do
   defs <- some parseLetDef
   return $ \mainGoal -> foldr (\def acc -> def $ acc) mainGoal defs
-
-parseDefs :: Parser [G X -> G X]
-parseDefs = some parseLetDef
 
