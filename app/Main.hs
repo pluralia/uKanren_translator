@@ -2,6 +2,7 @@ module Main where
 
 import System.Environment
 import Parser
+import Translator
 
 main :: IO ()
 main = do
@@ -11,11 +12,12 @@ main = do
         putStrLn fileName
         input <- readFile fileName
         putStrLn input
-        putStrLn "-----------------------------------------------------------"
-        putStrLn . getStrAstWithDefGoal $ input
-        putStrLn "-----------------------------------------------------------"
+        putStrLn "-----------------------------------------------------------------------------------"
+        putStrLn . strDefAsts $ input
+        putStrLn "-----------------------------------------------------------------------------------"
+        strTranslator . defAst $ input
     )
     fileNames
-  putStrLn "-----------------------------------------------------------"
+  putStrLn "-----------------------------------------------------------------------------------------"
   putStrLn "OK"
 

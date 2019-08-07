@@ -20,8 +20,10 @@ source-repository head
 
 library
   exposed-modules:
-      Parser
-    , Syntax
+      Syntax
+    , Parser
+    , AFSyntax
+    , Translator
   other-modules:
   hs-source-dirs: src
   build-depends:
