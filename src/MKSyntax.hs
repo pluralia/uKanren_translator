@@ -1,4 +1,4 @@
-module Syntax where
+module MKSyntax where
 
 import Data.List
 import Text.Printf

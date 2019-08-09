@@ -13,7 +13,7 @@ import           Control.Monad.Combinators.Expr
 import           Data.Void (Void(..))
 import           Data.Either (either)
 import           Data.Foldable (foldl')
-import           Syntax
+import           MKSyntax
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L

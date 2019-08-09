@@ -6,7 +6,9 @@ import Translator
 
 main :: IO ()
 main = do
-  fileNames <- getArgs
+--  fileNames <- getArgs
+  let inFileNames = ["resources/mkappendo"]
+      outFileName = "resources/appendo.hs"
   mapM_
     (\fileName -> do
         putStrLn fileName
@@ -15,9 +17,10 @@ main = do
         putStrLn "-----------------------------------------------------------------------------------"
         putStrLn . strDefAsts $ input
         putStrLn "-----------------------------------------------------------------------------------"
-        strTranslator . defAst $ input
+        let ast = defAst $ input
+        strTranslator ast
+        maybe (print "Haskell program is not exist") (writeFile outFileName . show) $ translator ast
     )
-    fileNames
+    inFileNames
   putStrLn "-----------------------------------------------------------------------------------------"
   putStrLn "OK"
-
