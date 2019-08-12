@@ -2,7 +2,8 @@
   (
       x === []
    /\ xy === y)
-  ([h t ty:
+  ([h t ty strange:
       x === h % t
-   /\ xy === h % ty
-   /\ {appendo t y ty}])
+   /\ strange === t
+   /\ {appendo t y ty}
+   /\ h % ty === xy])

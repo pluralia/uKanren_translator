@@ -1,5 +1,6 @@
 appendo [] y = y
 appendo (h : t) y = (h : ty)
   where
-    ty = appendo t y
+    strange = t
+ty = appendo t y
 
