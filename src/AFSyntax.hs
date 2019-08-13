@@ -29,9 +29,11 @@ instance Show Pat where
   show (Ctor name args) = ctor2str name (show <$> args)
     where
       ctor2str :: String -> [String] -> String
-      ctor2str "Nil"  _       = "[]"
-      ctor2str "Cons" (x : y) = '(' : x ++ " : " ++ unwords y ++ ")"
-      ctor2str ctor   args    = '(' : ctor ++ " " ++ unwords args ++ ")"
+      ctor2str "Nil"  _      = "[]"
+      ctor2str "Cons" [x, y] = '(' : x ++ " : " ++ y ++ ")"
+      ctor2str "O"    _      = "0"
+      ctor2str "S"    [x]    = '(' : x ++ " + 1)"
+      ctor2str ctor   args   = '(' : ctor ++ " " ++ unwords args ++ ")"
 
 
 instance Show Expr where

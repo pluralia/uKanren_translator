@@ -12,7 +12,6 @@ import           Control.Monad (void)
 import           Control.Monad.Combinators.Expr
 import           Data.Void (Void(..))
 import           Data.Either (either)
-import           Data.Foldable (foldl')
 import           MKSyntax
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
@@ -94,7 +93,7 @@ conso :: Parser (Term X)
 conso = do
   x  <- niloOrNum
   xs <- some $ symbol "%" *> niloOrNum
-  return $ foldl' (\term acc -> C "Cons" [term, acc]) x xs
+  return $ foldr1 (\term acc -> C "Cons" [term, acc]) $ (x : xs)
 
 
 parseNumTerm :: Parser (Term X)

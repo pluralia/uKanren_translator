@@ -26,7 +26,7 @@ myPrint (x : xs) = x ++ " | " ++ myPrint xs
 
 -----------------------------------------------------------------------------------------------------
 
-translator :: Maybe Def -> Maybe F
+translator :: (Functor f) => f Def -> f F
 translator = fmap go
 
 strTranslator :: Maybe Def -> IO ()
@@ -38,10 +38,8 @@ chooseDirection :: [a] -> ([a], a)
 chooseDirection vars = (init vars, last vars) 
 
 go :: Def -> F
-go def@(name, vars, goal) = F name . fmap (toLine (chooseDirection vars)) $ dnfWithFresh
+go def@(name, vars, goal) = F name . fmap (toLine (chooseDirection vars)) . toDNF . prrr $ goal
   where
-    dnfWithFresh = toDNF goal
-    disjsOfConjs = snd <$> dnfWithFresh
     prrr = trace (show $ toDNF goal)
 
 -----------------------------------------------------------------------------------------------------
