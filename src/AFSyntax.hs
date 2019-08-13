@@ -49,7 +49,7 @@ instance Show Line where
     where    
       printIfAssigns :: [Assign] -> String
       printIfAssigns []      = ""
-      printIfAssigns assigns =  "\n  where\n    " ++ (unlines $ show <$> assigns)
+      printIfAssigns assigns =  "\n  where\n" ++ (unlines $ (("    " ++) . show) <$> assigns)
 
 
 instance Show F where
