@@ -1,47 +1,45 @@
-:: copy l c = conde
-  (l === [] /\ c === [])
-  ([h t t1:
-     l === h % t /\ {copy t t1} /\ c === h % t1 ])
-
-:: appendoX y xy x = conde
+:: appendo x y xy = conde
   (x === [] /\ xy === y)
   ([h t ty:
-     xy === h % ty /\ {appendoX y ty t} /\ x === h % t ])
+     x === h % t /\ xy === h % ty /\ {appendo t y ty}])
 
+--:: appendoX y xy x = conde
+--  (x === [] /\ xy === y)
+--  ([h t ty:
+--     x === h % t /\ {appendoX y ty t} /\ xy === h % ty])
 
 {-
-:: appendoX y xy x = conde
-  (x === [] /\ xy === y)
-  ([h t ty:
-     x === h % t /\ {appendoX y ty t} /\ xy === h % ty])
--}
-
 :: appendoY x xy y = conde
   (x === [] /\ xy === y)
   ([h t ty:
      x === h % t /\ {appendoY t ty y} /\ xy === h % ty])
+-}
+
+------------------------------------------------------------------------------------------------------
+
+:: copy l c = conde
+  (l === [] /\ c === [])
+  ([h t t1:
+     c === h % t1 /\ {copy t t1} /\ l === h % t])
 
 
-:: appendo x y xy = conde
+:: appendoX y xy x = conde
   (x === [] /\ xy === y)
   ([h t ty:
-     x === h % t /\ {appendo t y ty} /\ xy === h % ty])
-{-
-:: appendo1 x y xy = conde
-  (x === [] \/ xy === y)
-  ([h t ty:
-     x === h % t \/ {appendo1 t y ty} \/ xy === h % ty])
--}
+     {appendoX y ty t} /\ xy === h % ty /\ x === h % t])
+
 
 :: revacco xs acc sx = conde
   (xs === [] /\ sx === acc)
   ([h t:
      xs === h % t /\ {revacco t h % acc sx}])
 
+
 :: lengtho x l = conde
   (x === [] /\ l === zero)
   ([h t z:
      x === h % t /\ {lengtho t z} /\ l === succ z])
+
 
 :: copy2 l c = conde
   (l === [] /\ c === [])

@@ -1,3 +1,9 @@
+appendo [] y = y
+appendo (h : t) y = (h : ty)
+  where
+    ty = appendo t y
+
+
 copy [] = []
 copy (h : t) = (h : t1)
   where
@@ -8,15 +14,6 @@ appendoX xy xy = []
 appendoX y (h : ty) = (h : t)
   where
     t = appendoX y ty
-
-
-appendoY [] xy = xy
-appendoY (h : t) (h : ty) = appendoY t ty
-
-appendo [] y = y
-appendo (h : t) y = (h : ty)
-  where
-    ty = appendo t y
 
 
 revacco [] acc = acc

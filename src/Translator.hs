@@ -10,7 +10,7 @@ module Translator (
 import           AFSyntax
 import           MKSyntax
 import           Control.Applicative (liftA2)
-import           Data.Bifunctor (first, second)
+import           Data.Bifunctor (bimap, first, second)
 import           Data.Biapplicative (biliftA2)
 import           Data.Char (ord)
 import qualified Data.Map.Strict as M
@@ -56,14 +56,16 @@ toDNF g                 = [([], [g])]
 term2pat :: Term X -> Pat
 term2pat (V var)        = Var var
 term2pat (C name terms) = Ctor name (fmap term2pat terms)
-
+{-
 term2expr :: Term X -> Expr
 term2expr = Term . term2pat
+-}
 
 pat2name :: Pat -> [Name]
 pat2name (Var varName)        = [varName]
 pat2name (Ctor ctorName pats) = pat2name `concatMap` pats
 
+-- REWRITE!! get the first pat for arg but doesn't check another pat - need unification
 patWalk :: [Name] -> Name -> [G X] -> ([Pat], [G X])
 patWalk []           _   goals = ([], goals)
 patWalk (arg : args) res goals = (pat :) `first` patWalk args res goals'
@@ -75,8 +77,8 @@ patWalk (arg : args) res goals = (pat :) `first` patWalk args res goals'
     patWalk' (g@(t1 :=: t2) : gs)
       | t1 == V arg, t2 /= V res = (term2pat t2, gs)
       | t2 == V arg, t1 /= V res = (term2pat t1, gs)
-      | otherwise                = (g :) `second` patWalk' gs
     patWalk' (g : gs)            = (g :) `second` patWalk' gs
+
 
 extractExpr :: Name -> [Assign] -> Maybe (Expr, [Assign])
 extractExpr _   [] = Nothing
@@ -84,98 +86,150 @@ extractExpr res (assig@(Assign var expr) : assigns)
   | res == var = Just (expr, assigns)
   | otherwise  = second (assig :) <$> extractExpr res assigns
 
+{-
 checkTerm :: [Name] -> Term X -> Bool
 checkTerm knownVars (V var)        = var `elem` knownVars
 checkTerm knownVars (C name terms) = all (checkTerm knownVars) terms
-
-updateEnv :: ([Name], [Name]) -> Name -> ([Name], [Name])
-updateEnv (knownVars, freshes) var = (var : knownVars, var `delete` freshes)
+-}
 
 -----------------------------------------------------------------------------------------------------
 
 toLine :: ([Name], Name) -> ([Name], [G X]) -> Line
+-- frehshes weren't used!
 toLine (args, res) (freshes, conjs) = Line pats assigns' expr
   where
     (pats, restConjs) = patWalk args res conjs
     knownVars         = pat2name `concatMap` pats
-    assigns           = toAssign (knownVars, res : freshes) restConjs
-    -- если результирующая переменная не определена, то пока просто падаем
-    (expr, assigns')  = maybe undefined id $ extractExpr res assigns
+    assigns           = toAssign knownVars restConjs
+    (expr, assigns')  = maybe (error "res is undefined") id $ extractExpr res assigns
 
-toAssign :: ([Name], [Name]) -> [G X] -> [Assign]
-toAssign _                        []             = []
-toAssign env@(knownVars, freshes) (conj : conjs) = toAssign' conj
+
+data PatTree = Def Pat
+             | UndefVar Name
+             | UndefCtor Name [PatTree]
+  deriving (Eq, Show)
+
+patsOrForest :: [PatTree] -> Either [PatTree] [Pat]
+patsOrForest patForest
+  | all isDef patForest = Right (unpackDef <$> patForest)
+  | otherwise           = Left patForest
+    
+isDef :: PatTree -> Bool
+isDef (Def _) = True
+isDef _       = False
+
+unpackDef :: PatTree -> Pat
+unpackDef (Def pat) = pat
+unpackDef _         = error "try to unpack undef term"
+    
+pat2tree :: [Name] -> Pat -> PatTree
+pat2tree knownVars = pat2tree'
   where
-    toAssign' :: G X -> [Assign]
-    toAssign' (V var1 :=: V var2)
-      | var1 `elem` freshes, var2 `elem` knownVars =
-          (Assign var1 $ Term . Var $ var2) : toAssign (updateEnv env var1) conjs
-      | var2 `elem` freshes, var1 `elem` knownVars =
-          (Assign var2 $ Term . Var $ var1) : toAssign (updateEnv env var2) conjs
-    toAssign' (V var :=: t)
-      | var `elem` freshes, checkTerm knownVars t =
-          (Assign var $ term2expr t) : toAssign (updateEnv env var) conjs
-    toAssign' (t :=: V var)
-      | var `elem` freshes, checkTerm knownVars t =
-          (Assign var $ term2expr t) : toAssign (updateEnv env var) conjs
-    toAssign' (Invoke name vars)
-      | (args, Var res) <- chooseDirection . fmap (term2pat) $ vars, res `elem` freshes =
-          (Assign res $ Call name args) : toAssign (updateEnv env res) conjs
-    -- fail of unification ---> should work with func call & :=: (exclude ctor :=: ctor)
-    toAssign' _ = undefined -- Assign "UNDEFINED" (Term $ Var "UNDEFINED")
+    pat2tree' :: Pat -> PatTree
+    pat2tree' var@(Var v) = if v `elem` knownVars then Def var else UndefVar v
+    pat2tree' (Ctor ctorName pats) =
+      either (UndefCtor ctorName) (Def . Ctor ctorName) . patsOrForest $ pat2tree' <$> pats
 
------------------------------------------------------------------------------------------------------
-{-
-varEncode :: X -> S
-varEncode []       = 0
-varEncode (x : xs) = ord x - 97 + 26 * varEncode xs
-
-varDecode :: S -> X
-varDecode n
-  -- UNDEFINED
-  | n < 0     = undefined
-  | n < 26    = [['a'..'z'] !! n]
-  | otherwise = ['a'..'z'] !! (n `mod` 26) : varDecode (n `div` 26)
-
-codePair :: (a -> b) -> a -> (a, b)
-codePair f x = (x, f x)
-
-insertPair :: (Ord a) => (a, b) -> M.Map a b -> M.Map a b
-insertPair (x, y) = M.insert x y
-
-renameTerm :: forall a b. (Ord a, Show a) => M.Map a b -> Term a -> Either String (Term b)
-renameTerm dict = renameTerm'
+walk :: M.Map Name Pat -> Pat -> Pat
+walk subst = walk'
   where
-    renameTerm' :: Term a -> Either String (Term b)
-    renameTerm' (V var)            =
-      maybe (Left $ "Error variable: " ++ show var) (Right . V) $ M.lookup var dict
-    renameTerm' (C ctorName terms) = C ctorName <$> (sequence . fmap renameTerm' $ terms)
+    walk' :: Pat -> Pat
+    walk' var@(Var v)          = maybe var walk' $ M.lookup v subst
+    walk' (Ctor ctorName pats) = Ctor ctorName (walk' <$> pats)
+    
 
--- replace with number all variables in a goal
--- remove ctor `Fresh` from the goal
-rename :: forall a b. (Ord a, Show a) =>
-  (a -> b) -> M.Map a b -> G a -> Either String (M.Map a b, G b)
--- in case of variable name overlap value replaced
-rename func dict (Fresh varName goal) = rename func (codePair func varName `insertPair` dict) goal
-rename func dict goal                 = rename' goal
+data Undef = CallFunc Name Name [PatTree]
+           | Unific PatTree PatTree
+  deriving (Eq, Show)
+
+
+unify :: [Name] -> M.Map Name Pat -> Pat -> Pat -> (M.Map Name Pat, [Undef])
+unify knownVars subst pat1 pat2 = unify' (walk subst pat1) (walk subst pat2)
   where
-    rename' :: G a -> Either String (M.Map a b, G b)
-    -- forbidden: Ctor :=: Ctor
-    rename' (C ctorName1 _ :=: C ctorName2 _) =
-      Left . printf $ "Error unification: " ++ ctorName1 ++ " " ++ ctorName2
-    rename' (t1 :=: t2) = do
-      renamedT1 <- renameTerm dict t1
-      renamedT2 <- renameTerm dict t2
-      return (dict, renamedT1 :=: renamedT2)
-    rename' (g1 :/\: g2) = do
-      (dict1, renamedG1) <- rename func dict g1
-      (dict2, renamedG2) <- rename func dict g2
-      return (dict1 `M.union` dict2, renamedG1 :/\: renamedG2)
-    rename' (g1 :\/: g2) = do
-      (dict1, renamedG1) <- rename func dict g1
-      (dict2, renamedG2) <- rename func dict g2
-      return (dict1 `M.union` dict2, renamedG1 :\/: renamedG2)
-    rename' (Invoke funcName terms) = (dict,) . Invoke funcName <$> (sequence . fmap (renameTerm dict) $ terms)
-    rename' (Let _ _)               = Left "Let-ctor is forbidden"
--}
+    unify' :: Pat -> Pat -> (M.Map Name Pat, [Undef])
+    unify' (Ctor ctorName1 args1) (Ctor ctorName2 args2)
+      | ctorName1 == ctorName2 = bimap M.unions concat . unzip $ zipWith unify' args1 args2
+      | otherwise              = error "ctors unification fails"
+    unify' var@(Var _) pat =
+      let knownVars'' = knownVars ++ M.keys subst
+       in updateSubst subst (pat2tree knownVars'' var) (pat2tree knownVars'' pat)
+    unify' ctor@(Ctor _ _) var@(Var _) = unify' var ctor
+
+updateSubst :: M.Map Name Pat -> PatTree -> PatTree -> (M.Map Name Pat, [Undef])
+updateSubst subst = updateSubst'
+  where
+    updateSubst' :: PatTree -> PatTree -> (M.Map Name Pat, [Undef])
+    updateSubst' (Def pat1) (Def pat2)
+      | pat1 == pat2 = (subst, [])
+      | otherwise    = error "unification fails: var & ctor || var & var"
+    -- ПОСМОТРЕТЬ ЭТОТ СЛУЧАЙ ПОДРОБНЕЕ
+    updateSubst' (Def var)         (UndefCtor _ _)      = error "pattern matching in assign"
+    updateSubst' (UndefVar var)    (Def pat)            =
+      (M.insertWith (\_ _ -> error $ var ++ " has already defined! CURSED CHECK") var pat subst, [])
+    updateSubst' var1@(UndefVar _) var2@(UndefVar _)    = (subst, [Unific var1 var2])
+    updateSubst' var@(UndefVar _)  ctor@(UndefCtor _ _) = (subst, [Unific var ctor])
+    updateSubst' _                 _                    = error "updateSubst: impossible case"
+
+
+toAssign :: [Name] -> [G X] -> [Assign]
+toAssign knownVars = toAssign' . getSubst [] M.empty [] 
+  where
+    toAssign' :: ([Assign], M.Map Name Pat, [Undef]) -> [Assign]
+    toAssign' (funcDefs, subst, []) =
+      (funcDefs ++) . fmap (uncurry Assign) . M.toList . M.map Term $ subst
+    toAssign' (funcDefs, subst, undefs) =
+      let next@(funcDefs', subst', undefs') = doDef funcDefs subst undefs
+       in if undefs == undefs' then error "there are undef vars" else toAssign' next
+
+    -- funcs for main loop
+    doDef :: [Assign] -> M.Map Name Pat -> [Undef] ->
+             ([Assign], M.Map Name Pat, [Undef])
+    doDef funcDefs subst []                                            = (funcDefs, subst, [])
+    doDef funcDefs subst (undef@(CallFunc res funcName args) : undefs) =
+      let knownVars'' = getAllKnownVars funcDefs ++ M.keys subst
+       in case patsOrForest (defPatTree knownVars'' subst <$> args) of
+            Left _        -> (\(fd, s, u) -> (fd, s, undef : u)) $ (doDef funcDefs subst undefs)
+            Right argPats -> doDef ((Assign res (Call funcName argPats)) : funcDefs) subst undefs
+    doDef funcDefs subst ((Unific patTree1 patTree2) : undefs)         =
+      let knownVars'' = getAllKnownVars funcDefs ++ M.keys subst
+          patTree1'   = defPatTree knownVars'' subst patTree1
+          patTree2'   = defPatTree knownVars'' subst patTree2
+       in case updateSubst subst patTree1' patTree2' of
+            (subst', []) -> doDef funcDefs subst' undefs
+            (_, undef)   -> (\(fd, s, u) -> (fd, s, undef ++ u)) $ doDef funcDefs subst undefs
+
+    defPatTree :: [Name] -> M.Map Name Pat -> PatTree -> PatTree
+    defPatTree knownVars'' subst = defPatTree'
+      where
+        defPatTree' :: PatTree -> PatTree
+        defPatTree' def@(Def _)           = def
+        defPatTree' (UndefVar v)          =
+          pat2tree knownVars'' $ walk subst (Var v)
+        defPatTree' (UndefCtor name pats) =
+          let patForest = defPatTree' <$> pats
+           in either (UndefCtor name) (Def . Ctor name) $ patsOrForest patForest
+    
+    -- funcs for one interation
+    getAllKnownVars :: [Assign] -> [Name]
+    getAllKnownVars funcDefs = knownVars ++ ((\(Assign name _) -> name) <$> funcDefs)
+
+    getSubst :: [Assign] -> M.Map Name Pat -> [Undef] ->
+                [G X] ->
+                ([Assign], M.Map Name Pat, [Undef])
+    getSubst funcDefs subst undefs []                               = (funcDefs, subst, undefs)
+    getSubst funcDefs subst undefs ((Invoke funcName vars) : conjs)
+      | (terms, V res) <- chooseDirection vars =
+          let knownVars''                  = getAllKnownVars funcDefs ++ M.keys subst
+              (funcDefs', subst', undefs') =
+                case patsOrForest (fmap (pat2tree knownVars'' . term2pat) terms) of
+                  Left argForest -> (funcDefs, subst, (CallFunc funcName res argForest) : undefs)
+                  Right argPats  -> (Assign res (Call funcName argPats) : funcDefs, subst, undefs)
+           in getSubst funcDefs' subst' undefs' conjs
+      | otherwise = error "res in func call is not var"
+    getSubst funcDefs subst undefs ((term1 :=: term2) : conjs) =
+      let knownVars''         = getAllKnownVars funcDefs ++ M.keys subst
+          (subst', undefPlus) = unify knownVars'' subst (term2pat term1) (term2pat term2)
+       in getSubst funcDefs subst' (undefs ++ undefPlus) conjs
+    getSubst _        _     _      _                           = error "impossible conj"
+
 -----------------------------------------------------------------------------------------------------
