@@ -14,7 +14,8 @@ import           Data.Bifunctor (bimap, first, second)
 import           Data.Biapplicative (biliftA2)
 import           Data.Char (ord)
 import qualified Data.Map.Strict as M
-import           Data.List (delete)
+import           Data.List (delete, nub)
+import           Data.List.NonEmpty (NonEmpty(..))
 import           Debug.Trace
 import           Text.Printf (printf)
 
@@ -56,10 +57,6 @@ toDNF g                 = [([], [g])]
 term2pat :: Term X -> Pat
 term2pat (V var)        = Var var
 term2pat (C name terms) = Ctor name (fmap term2pat terms)
-{-
-term2expr :: Term X -> Expr
-term2expr = Term . term2pat
--}
 
 pat2name :: Pat -> [Name]
 pat2name (Var varName)        = [varName]
@@ -86,23 +83,103 @@ extractExpr res (assig@(Assign var expr) : assigns)
   | res == var = Just (expr, assigns)
   | otherwise  = second (assig :) <$> extractExpr res assigns
 
-{-
-checkTerm :: [Name] -> Term X -> Bool
-checkTerm knownVars (V var)        = var `elem` knownVars
-checkTerm knownVars (C name terms) = all (checkTerm knownVars) terms
--}
+infApost = '\'' : infApost
+
+concatGuards :: Guard -> Guard -> Guard
+concatGuards (Guard list1) (Guard list2) = Guard . nub $ list1 ++ list2
+
+concatMbGuards :: Maybe Guard -> Maybe Guard -> Maybe Guard
+concatMbGuards (Just g1) (Just g2) = Just $ concatGuards g1 g2
+concatMbGuards Nothing   mbGuard   = mbGuard
+concatMbGuards mbGuard   _         = mbGuard
 
 -----------------------------------------------------------------------------------------------------
 
 toLine :: ([Name], Name) -> ([Name], [G X]) -> Line
 -- frehshes weren't used!
-toLine (args, res) (freshes, conjs) = Line pats assigns' expr
+toLine (args, res) (freshes, conjs) = trace (show line) line
   where
+    line = Line pats' guards assigns' expr
+
     (pats, restConjs) = patWalk args res conjs
-    knownVars         = pat2name `concatMap` pats
+    knownVars         = pat2name `concatMap` (nub pats)
+    (pats', guards)   = removeDuplicate pats
     assigns           = toAssign knownVars restConjs
     (expr, assigns')  = maybe (error "res is undefined") id $ extractExpr res assigns
 
+-----------------------------------------------------------------------------------------------------
+
+removeDuplicate :: [Pat] -> ([Pat], [Guard])
+removeDuplicate []                            = ([], [])
+removeDuplicate (pat@(Var varName) : pats)        =
+  let (_, mbGuard, pats') = findNameInPatList varName 1 pats
+      (resPats, guards)   = removeDuplicate pats'
+   in (pat : resPats, maybe guards (: guards) mbGuard)
+removeDuplicate ((Ctor ctorName args) : pats) =
+  let (args', guardInfoCtor)           = handlingCtor args
+      resPat                           = Ctor ctorName args'
+      (substCtorPats, guardInfoCtor')  = pats `updateByGuard` guardInfoCtor
+      guardsCtor                       = (\(_, _, x) -> x) <$> guardInfoCtor'
+      (substCtorPats', guardsPatsCtor) = substCtorPats `updateByName` pat2name resPat
+      (resPats, guardsPats)            = removeDuplicate substCtorPats'
+   in (resPat : resPats, guardsCtor ++ guardsPatsCtor ++ guardsPats)
+
+
+updateByName :: [Pat] -> [Name] -> ([Pat], [Guard])
+updateByName pats []             = (pats, [])
+updateByName pats (name : names) =
+  let (_, mbGuard, pats')   = findNameInPatList name 1 pats
+      (resPats, guardsPats) = pats' `updateByName` names
+   in (resPats, maybe guardsPats (: guardsPats) mbGuard) 
+
+
+handlingCtor :: [Pat] -> ([Pat], [(Name, Int, Guard)])
+handlingCtor []                                = ([], [])
+handlingCtor (arg@(Var varName) : args)        =
+  let (num, mbGuardArg, args') = findNameInPatList varName 1 args
+      (resArgs, guardInfoList) = handlingCtor args'
+   in (arg : resArgs, maybe guardInfoList (\x -> (varName, num, x) : guardInfoList) mbGuardArg)
+handlingCtor ((Ctor ctorName ctorArgs) : args) =
+  let (ctorArgs', guardInfoCtor) = handlingCtor ctorArgs
+      arg'                       = Ctor ctorName ctorArgs'
+      (args', guardInfoList)     = args `updateByGuard` guardInfoCtor
+   in (arg' : args', guardInfoList)
+
+
+updateByGuard :: [Pat] -> [(Name, Int, Guard)] -> ([Pat], [(Name, Int, Guard)])
+updateByGuard pats []                                   = (pats, [])
+updateByGuard pats ((name, num, guard) : guardInfoList) =
+  let (num', mbGuards, pats')   = findNameInPatList name num pats
+      guardInfo                 = (name, num', maybe guard (\x -> concatGuards x guard) mbGuards)
+      (resPats, guardInfoList') = pats' `updateByGuard` guardInfoList
+   in (resPats, guardInfo : guardInfoList')
+
+
+findNameInPatList :: Name -> Int -> [Pat] -> (Int, Maybe Guard, [Pat])
+findNameInPatList name = findNameInPatList'
+  where
+    findNameInPatList' :: Int -> [Pat] -> (Int, Maybe Guard, [Pat])
+    findNameInPatList' num []           = (num, Nothing, [])
+    findNameInPatList' num (pat : pats) =
+      let (num', mbGuard, pat')    = findNameInPat name num pat
+          (num'', mbGuards, pats') = findNameInPatList' num' pats
+       in (num'', mbGuard `concatMbGuards` mbGuards, pat' : pats')
+
+
+findNameInPat :: Name -> Int -> Pat -> (Int, Maybe Guard, Pat)
+findNameInPat name = findNameInPat'
+  where
+    findNameInPat' :: Int -> Pat -> (Int, Maybe Guard, Pat)
+    findNameInPat' num pat@(Var varName)
+      | varName == name =
+          let varName' = varName ++ take num infApost
+           in (succ num, Just . Guard $ [varName, varName'], Var varName')
+      | otherwise       = (num, Nothing, pat)
+    findNameInPat' num (Ctor ctorName args) =
+      let (num', maybeGuard, args') = findNameInPatList name num args
+       in (num', maybeGuard, Ctor ctorName args')
+  
+-----------------------------------------------------------------------------------------------------
 
 data PatTree = Def Pat
              | UndefVar Name

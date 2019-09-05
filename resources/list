@@ -3,10 +3,18 @@
   ([h t ty:
      x === h % t /\ xy === h % ty /\ {appendo t y ty}])
 
---:: appendoX y xy x = conde
---  (x === [] /\ xy === y)
---  ([h t ty:
---     x === h % t /\ {appendoX y ty t} /\ xy === h % ty])
+
+:: appendoX y xy x = conde
+  (x === [] /\ xy === y)
+  ([h t ty:
+     {appendoX y ty t} /\ xy === h % ty /\ x === h % t])
+
+{-
+:: appendoX y xy x = conde
+  (x === [] /\ xy === y)
+  ([h t ty:
+     x === h % t /\ {appendoX y ty t} /\ xy === h % ty])
+-}
 
 {-
 :: appendoY x xy y = conde
@@ -21,12 +29,6 @@
   (l === [] /\ c === [])
   ([h t t1:
      c === h % t1 /\ {copy t t1} /\ l === h % t])
-
-
-:: appendoX y xy x = conde
-  (x === [] /\ xy === y)
-  ([h t ty:
-     {appendoX y ty t} /\ xy === h % ty /\ x === h % t])
 
 
 :: revacco xs acc sx = conde

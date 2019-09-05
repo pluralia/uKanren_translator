@@ -4,16 +4,16 @@ appendo (h : t) y = (h : ty)
     ty = appendo t y
 
 
+appendoX xy xy' | xy == xy' = []
+appendoX y (h : ty) = (h : t)
+  where
+    t = appendoX y ty
+
+
 copy [] = []
 copy (h : t) = (h : t1)
   where
     t1 = copy t
-
-
-appendoX xy xy = []
-appendoX y (h : ty) = (h : t)
-  where
-    t = appendoX y ty
 
 
 revacco [] acc = acc

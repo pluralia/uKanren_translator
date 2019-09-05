@@ -14,8 +14,10 @@ data Expr = Term Pat
 data Assign = Assign String Expr
   deriving (Eq, Ord)
 
+newtype Guard = Guard [String]
+  deriving (Eq, Ord)
 
-data Line = Line [Pat] [Assign] Expr
+data Line = Line [Pat] [Guard] [Assign] Expr
   deriving (Eq, Ord)
 
 
@@ -45,10 +47,21 @@ instance Show Assign where
   show (Assign name expr) = name ++ " = " ++ show expr
 
 
+instance Show Guard where
+  show (Guard [])          = ""
+  show (Guard (name : xs)) =
+    let rvalue = ", " ++ name ++ " == "
+     in drop 2 . unwords . fmap (rvalue ++) $ xs 
+
+
 instance Show Line where
-  show (Line pats assigns expr) =
-    (unwords $ show <$> pats) ++ " = " ++ show expr ++ printIfAssigns assigns 
-    where    
+  show (Line pats guards assigns expr) =
+    (unwords $ show <$> pats) ++ printIfGuard guards ++ " = " ++ show expr ++ printIfAssigns assigns 
+    where
+      printIfGuard :: [Guard] -> String
+      printIfGuard []     = ""
+      printIfGuard guards = " | " ++ (drop 2 . unwords . fmap ((", " ++) . show) $ guards)
+
       printIfAssigns :: [Assign] -> String
       printIfAssigns []      = ""
       printIfAssigns assigns =  "\n  where\n" ++ (unlines $ (("    " ++) . show) <$> assigns)
