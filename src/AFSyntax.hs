@@ -44,7 +44,8 @@ instance Show Expr where
 
 
 instance Show Assign where
-  show (Assign name expr) = name ++ " = " ++ show expr
+  show (Assign name expr@(Term _))   = "let " ++ name ++ " = " ++ show expr
+  show (Assign name expr@(Call _ _)) = name ++ " <- " ++ show expr
 
 
 instance Show Guard where
@@ -56,7 +57,7 @@ instance Show Guard where
 
 instance Show Line where
   show (Line pats guards assigns expr) =
-    (unwords $ show <$> pats) ++ printIfGuard guards ++ " = " ++ show expr ++ printIfAssigns assigns 
+    (unwords $ show <$> pats) ++ printIfGuard guards ++ " = " ++ printIfAssigns assigns ++ printExpr expr
     where
       printIfGuard :: [Guard] -> String
       printIfGuard []     = ""
@@ -64,7 +65,11 @@ instance Show Line where
 
       printIfAssigns :: [Assign] -> String
       printIfAssigns []      = ""
-      printIfAssigns assigns =  "\n  where\n" ++ (unlines $ (("    " ++) . show) <$> assigns)
+      printIfAssigns assigns = "do" ++ (unwords $ (("\n  " ++) . show) <$> assigns) ++ "\n  "
+
+      printExpr :: Expr -> String
+      printExpr expr@(Term _) = "return $ " ++ show expr
+      printExpr expr          = show expr
 
 
 instance Show F where

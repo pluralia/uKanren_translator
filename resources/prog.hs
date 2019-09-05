@@ -1,34 +1,41 @@
-appendo [] y = y
-appendo (h : t) y = (h : ty)
-  where
-    ty = appendo t y
+appendo [] y = return $ y
+appendo (h : t) y = do
+  ty <- appendo t y
+  return $ (h : ty)
+appendo _ _ = fail "Illegal arguments"
 
+appendoX xy xy' | xy == xy' = return $ []
+appendoX y (h : ty) = do
+  t <- appendoX y ty
+  return $ (h : t)
+appendoX _ _ = fail "Illegal arguments"
 
-appendoX xy xy' | xy == xy' = []
-appendoX y (h : ty) = (h : t)
-  where
-    t = appendoX y ty
+appendoXX xy xy' | xy == xy' = return $ []
+appendoXX y (h : ty) = do
+  t <- appendoXX y ty
+  return $ (h : t)
+appendoXX _ _ = fail "Illegal arguments"
 
+copy [] = return $ []
+copy (h : t) = do
+  t1 <- copy t
+  return $ (h : t1)
+copy _ = fail "Illegal arguments"
 
-copy [] = []
-copy (h : t) = (h : t1)
-  where
-    t1 = copy t
-
-
-revacco [] acc = acc
+revacco [] acc = return $ acc
 revacco (h : t) acc = revacco t (h : acc)
+revacco _ _ = fail "Illegal arguments"
 
-lengtho [] = 0
-lengtho (h : t) = (z + 1)
-  where
-    z = lengtho t
+lengtho [] = return $ 0
+lengtho (h : t) = do
+  z <- lengtho t
+  return $ (z + 1)
+lengtho _ = fail "Illegal arguments"
 
-
-copy2 [] = []
-copy2 (h : []) = (h : [])
-copy2 (h1 : (h2 : t)) = (h1 : t1)
-  where
-    t1 = copy2 t
-
+copy2 [] = return $ []
+copy2 (h : []) = return $ (h : [])
+copy2 (h1 : (h2 : t)) = do
+  t1 <- copy2 t
+  return $ (h1 : t1)
+copy2 _ = fail "Illegal arguments"
 

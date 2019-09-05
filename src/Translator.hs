@@ -39,8 +39,16 @@ chooseDirection :: [a] -> ([a], a)
 chooseDirection vars = (init vars, last vars) 
 
 go :: Def -> F
-go def@(name, vars, goal) = F name . fmap (toLine (chooseDirection vars)) . toDNF . prrr $ goal
+go def@(name, vars, goal) =
+  F name . addLine . fmap (toLine (chooseDirection vars)) . toDNF . prrr $ goal
   where
+    addLine :: [Line] -> [Line]
+    addLine lines@((Line pats _ _ _) : ls) = 
+      let failLine =
+            Line (replicate (length pats) (Var "_")) [] [] (Call "fail" [Var "\"Illegal arguments\""])
+       in lines ++ [failLine]
+    addLine _                              = error "go : addLine : impossible case"
+
     prrr = trace (show $ toDNF goal)
 
 -----------------------------------------------------------------------------------------------------
@@ -83,8 +91,6 @@ extractExpr res (assig@(Assign var expr) : assigns)
   | res == var = Just (expr, assigns)
   | otherwise  = second (assig :) <$> extractExpr res assigns
 
-infApost = '\'' : infApost
-
 concatGuards :: Guard -> Guard -> Guard
 concatGuards (Guard list1) (Guard list2) = Guard . nub $ list1 ++ list2
 
@@ -97,7 +103,7 @@ concatMbGuards mbGuard   _         = mbGuard
 
 toLine :: ([Name], Name) -> ([Name], [G X]) -> Line
 -- frehshes weren't used!
-toLine (args, res) (freshes, conjs) = trace (show line) line
+toLine (args, res) (freshes, conjs) = line
   where
     line = Line pats' guards assigns' expr
 
@@ -172,7 +178,7 @@ findNameInPat name = findNameInPat'
     findNameInPat' :: Int -> Pat -> (Int, Maybe Guard, Pat)
     findNameInPat' num pat@(Var varName)
       | varName == name =
-          let varName' = varName ++ take num infApost
+          let varName' = varName ++ replicate num '\''
            in (succ num, Just . Guard $ [varName, varName'], Var varName')
       | otherwise       = (num, Nothing, pat)
     findNameInPat' num (Ctor ctorName args) =

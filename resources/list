@@ -9,20 +9,18 @@
   ([h t ty:
      {appendoX y ty t} /\ xy === h % ty /\ x === h % t])
 
-{-
-:: appendoX y xy x = conde
+
+:: appendoXX y xy x = conde
   (x === [] /\ xy === y)
   ([h t ty:
-     x === h % t /\ {appendoX y ty t} /\ xy === h % ty])
--}
+     x === h % t /\ {appendoXX y ty t} /\ xy === h % ty])
 
 {-
 :: appendoY x xy y = conde
   (x === [] /\ xy === y)
   ([h t ty:
-     x === h % t /\ {appendoY t ty y} /\ xy === h % ty])
+     x === h % t /\ xy === h % ty /\ {appendoY t ty y}])
 -}
-
 ------------------------------------------------------------------------------------------------------
 
 :: copy l c = conde
