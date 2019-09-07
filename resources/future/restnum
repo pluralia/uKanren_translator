@@ -1,0 +1,34 @@
+----------------------------------------------------------------------------------------------------
+-- with predicates ---------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+
+:: leo x y b =
+  x === zero /\ b === <true :> \/
+  [zz:
+    x === succ zz /\ y === zero /\ b === falseo] \/
+  [x1 y1:
+    x === succ x1 /\ y === succ y1 /\ {leo x1 y1 b}]
+
+:: gto x y b =
+  [zz:
+    x === succ zz /\ y === zero /\ b === trueo] \/
+  x === zero /\ b === falseo \/
+  [x1 y1:
+    x === succ x1 /\ y === succ y1 /\ {gto x1 y1 b}]
+
+:: geo x y z =
+  {leo y x z}
+
+:: lto x y z =
+  {gto y x z}
+
+:: notZero x =
+  [y:
+    x === succ y]
+
+:: maxo1 x n m = conde
+  (x === [] /\ m === n)
+  ([h t z tru:
+     x === h % t /\ {leo h n tru} /\ {maxo1 t n m}])
+  ([h t z tru:
+     x === h % t /\ {gto h n tru} /\ {maxo1 t h m}])

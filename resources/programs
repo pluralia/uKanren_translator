@@ -1,0 +1,22 @@
+:: doubleAppendo x y z r =
+  [t:
+    {appendo x y t} /\ {appendo t z r}]
+
+:: doubleo x xx =
+  {appendo x x xx}
+
+:: emptyAppendo x y =
+  {appendo [] x y}
+
+:: appendo123 x y =
+  {appendo (succ zero) % (succ (succ zero)) % (succ (succ (succ zero))) % [] x y}
+
+:: appendoXyz x y z t r =
+  {appendo x % y % z % [] t r}
+
+:: test l r = conde
+  ([x mulx:
+     l === x % [] /\ {mulo x (succ (succ zero)) mulx} /\ r === x % mulx % []])
+  ([x1 x2:
+     {test ((succ zero) % []) x1} /\ {test ((succ (succ zero)) % []) x2} /\ {appendo x1 x2 r}])
+

@@ -1,0 +1,10 @@
+:: addo x y z =
+  x === zero /\ z === y \/
+  [x1 z1:
+    x === succ x1 /\ z === succ z1 /\ {addo x1 y z1}]
+
+:: mulo x y z =
+  x === zero /\ z === zero \/
+  [x1 y1 z1:
+    x === succ x1 /\ {mulo x1 y z1} /\ {addo y z1 z}]
+
