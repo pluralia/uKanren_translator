@@ -43,10 +43,11 @@ go def@(name, vars, goal) =
   F name . addLine . fmap (toLine (chooseDirection vars)) . toDNF . prrr $ goal
   where
     addLine :: [Line] -> [Line]
-    addLine lines@((Line pats _ _ _) : ls) = 
-      let failLine =
-            Line (replicate (length pats) (Var "_")) [] [] (Call "fail" [Var "\"Illegal arguments\""])
-       in lines ++ [failLine]
+    addLine lines@((Line pats _ _ _) : ls) =
+      let argNum   = length pats
+          failLine =
+            Line (replicate argNum (Var "_")) [] [] (Call "fail" [Var "\"Illegal arguments\""])
+       in if argNum == 0 then lines else lines ++ [failLine]
     addLine _                              = error "go : addLine : impossible case"
 
     prrr = trace (show $ toDNF goal)
@@ -262,7 +263,7 @@ toAssign knownVars = toAssign' . getSubst [] M.empty []
       (funcDefs ++) . fmap (uncurry Assign) . M.toList . M.map Term $ subst
     toAssign' (funcDefs, subst, undefs) =
       let next@(funcDefs', subst', undefs') = doDef funcDefs subst undefs
-       in if undefs == undefs' then error "there are undef vars" else toAssign' next
+       in if undefs == undefs' then error $ "there are undef vars: " ++ show undefs else toAssign' next
 
     -- funcs for main loop
     doDef :: [Assign] -> M.Map Name Pat -> [Undef] ->
@@ -308,7 +309,7 @@ toAssign knownVars = toAssign' . getSubst [] M.empty []
                   Left argForest -> (funcDefs, subst, (CallFunc funcName res argForest) : undefs)
                   Right argPats  -> (Assign res (Call funcName argPats) : funcDefs, subst, undefs)
            in getSubst funcDefs' subst' undefs' conjs
-      | otherwise = error "res in func call is not var"
+      | otherwise = error $ "res in func call is not var: " ++ show vars
     getSubst funcDefs subst undefs ((term1 :=: term2) : conjs) =
       let knownVars''         = getAllKnownVars funcDefs ++ M.keys subst
           (subst', undefPlus) = unify knownVars'' subst (term2pat term1) (term2pat term2)
