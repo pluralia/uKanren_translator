@@ -91,8 +91,8 @@ niloOrNum = try parseNumTerm <|> do
 
 conso :: Parser (Term X)
 conso = do
-  x  <- niloOrNum
-  xs <- some $ symbol "%" *> niloOrNum
+  x  <- niloOrNum <|> roundBr parseTerm
+  xs <- some $ symbol "%" *> parseTerm
   return $ foldr1 (\term acc -> C "Cons" [term, acc]) $ (x : xs)
 
 
@@ -136,7 +136,7 @@ parseDesugarTerm = try c <|> v
     c = angleBr $ do
       name  <- ident
       symbol ":"
-      terms <- many parseDesugarTerm
+      terms <- many parseTerm
       return $ C name terms
 
 
