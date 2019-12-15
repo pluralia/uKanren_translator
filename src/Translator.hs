@@ -40,16 +40,8 @@ chooseDirection vars = (init vars, last vars)
 
 go :: Def -> F
 go def@(name, vars, goal) =
-  F name . addLine . fmap (toLine (chooseDirection vars)) . toDNF . prrr $ goal
+  F name . fmap (toLine (chooseDirection vars)) . toDNF . prrr $ goal
   where
-    addLine :: [Line] -> [Line]
-    addLine lines@((Line pats _ _ _) : ls) =
-      let argNum   = length pats
-          failLine =
-            Line (replicate argNum (Var "_")) [] [] (Call "fail" [Var "\"Illegal arguments\""])
-       in if argNum == 0 then lines else lines ++ [failLine]
-    addLine _                              = error "go : addLine : impossible case"
-
     prrr = trace (show $ toDNF goal)
 
 -----------------------------------------------------------------------------------------------------

@@ -8,7 +8,7 @@ main :: IO ()
 main = do
   let
       inDirName = "resources/"
-      inFileNames = (inDirName ++) <$> ["list", "num", "bool", "programs"]
+      inFileNames = (inDirName ++) <$> ["intersectDisj"] -- ["list", "num", "bool", "programs"]
       outFileName = "resources/1.hs"
   writeFile outFileName "import Peano\n\nmaxo1 = undefined\n\n"  
   mapM_

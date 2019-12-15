@@ -67,7 +67,7 @@ instance Show Line where
 
       printIfAssigns :: [Assign] -> String
       printIfAssigns []      = ""
-      printIfAssigns assigns = "do" ++ (unwords $ (("\n  " ++) . show) <$> assigns) ++ "\n  "
+      printIfAssigns assigns = "do" ++ (unwords $ (("\n  " ++) . show) <$> reverse assigns) ++ "\n  "
 
       printExpr :: Expr -> String
       printExpr expr@(Term _) = "return $ " ++ show expr
@@ -75,5 +75,28 @@ instance Show Line where
 
 
 instance Show F where
-  show (F funcName lines) = unlines $ ((funcName ++ " ") ++) . show <$> lines
+  show (F funcName [])    = funcName ++ " = undefined\n"
+  show (F funcName lines) = mainFunc ++ subFuncs
+    where
+      argsNum = getArgsNum lines
+      subFuncsName = getNamesByNum funcName (length lines)
+      
+      mainFunc =
+        let argsStr = unwords (getNamesByNum "x" argsNum)
+         in funcName ++ " " ++ argsStr ++ " = "
+            ++ (drop 3 . unwords . fmap (\x -> "++ " ++ x ++ " " ++ argsStr) $ subFuncsName) ++ "\n"
 
+      subFuncs = unlines (subFuncGen `concatMap` zip subFuncsName (show <$> lines))
+
+      subFuncGen :: (String, String) -> [String]
+      subFuncGen (name, body) =
+        let skipBody = unwords (replicate argsNum "_") ++ " = []"
+         in ((name ++ " ") ++) <$> (body : if (argsNum > 0) then [skipBody] else [])
+
+      getNamesByNum :: String -> Int -> [String]
+      getNamesByNum name num = ((name ++) . show) <$> [0..num - 1]
+      
+      getArgsNum :: [Line] -> Int
+      getArgsNum ((Line pats _ _ _) : _) = length pats
+      getArgsNum []                      = error "no lines"
+      
