@@ -6,6 +6,24 @@ import MKSyntax
 
 import Data.List
 
+
+scope :: [Def]
+scope = [
+          ("reverso",["x","y"],V "x" :=: C "Nil" [] :/\: V "y" :=: C "Nil" [] :\/: Fresh "h" (Fresh "t" (Fresh "rt" (V "x" :=: C "Cons" [V "h",V "t"] :/\: (Invoke "reverso" [V "t",V "rt"] :/\: Invoke "appendo" [V "rt",C "Cons" [V "h",C "Nil" []],V "y"])))))
+        , ("appendo",["x","y","xy"],V "x" :=: C "Nil" [] :/\: V "xy" :=: V "y" :\/: Fresh "h" (Fresh "t" (Fresh "ty" (V "x" :=: C "Cons" [V "h",V "t"] :/\: (V "xy" :=: C "Cons" [V "h",V "ty"] :/\: Invoke "appendo" [V "t",V "y",V "ty"])))))
+        ]
+
+getGoalBySpec :: X -> Int -> G X
+getGoalBySpec funcName argsNum =
+    maybe (error "function not in the scope")
+          (\(args, body) -> if length args == argsNum
+                              then body
+                              else error "error args num in function call")
+  . lookup funcName
+  . fmap (\(name, args, body) -> (name, (args, body))) $ scope
+
+----------------------------------------------------------------------------------------------------
+
 data Ann = In | Out | Undef
   deriving (Show, Eq)
 
@@ -51,14 +69,37 @@ meet Undef x = x
 
 -----------------------------------------------------------------------------------------------------
 
-meetGoal :: G (X, Ann) -> G (X, Ann) -> G (X, Ann)
-meetGoal g1 g2 = updAnnots g1 :/\: updAnnots g2
-  where
-    annotList = [(x1, meet ann1 ann2) | (x1, ann1) <- getVars g1, (x2, ann2) <- getVars g2, x1 == x2]
-    
-    updAnnots :: G (X, Ann) -> G (X, Ann)
-    updAnnots = fmap (\v@(x, _) -> maybe v (\updAnn -> (x, updAnn)) $ lookup x annotList)
+updAnnots :: [(X, Ann)] -> G (X, Ann) -> G (X, Ann)
+updAnnots annotList = fmap (\v@(x, _) -> maybe v (\updAnn -> (x, updAnn)) $ lookup x annotList)
 
+meetGoal :: G (X, Ann) -> G (X, Ann) -> G (X, Ann)
+meetGoal g1 g2 = updAnnots annotList g1 :/\: updAnnots annotList g2
+  where
+    annotList = [(x1, meet ann1 ann2) | (x1, ann1) <- getVarsWithAnnInvoke g1,
+                                        (x2, ann2) <- getVarsWithAnnInvoke g2, x1 == x2]
+
+getVarsWithAnnInvoke :: G (X, Ann) -> [(X, Ann)]
+getVarsWithAnnInvoke (Invoke name args) = filter (\(x, ann) -> x `elem` argsNames) invokeGoalVars
+  where
+    argsNames :: [X]
+    argsNames = fmap fst . concatMap getVarsT $ args
+
+    invokeGoalVars :: [(X, Ann)]
+    invokeGoalVars = getVars . annotateGoal inOutOfArgs $ getGoalBySpec name (length args)
+    
+    inOutOfArgs :: ([X], [X])
+    inOutOfArgs = flatInOutList $ getInOut <$> args
+
+    flatInOutList :: [([a], [a])] -> ([a], [a])
+    flatInOutList = foldr (\(xIn, xOut) (accIn, accOut) -> (xIn ++ accIn, xOut ++ accOut)) ([], []) 
+ 
+    getInOut :: Term (X, Ann) -> ([X], [X])
+    getInOut (V (x, In))    = ([x], [])
+    getInOut (V (x, Out))   = ([], [x])
+    getInOut (V (x, Undef)) = ([], [])
+    getInOut (C _ terms)    = flatInOutList $ getInOut <$> terms
+getVarsWithAnnInvoke goal               = getVars goal
+ 
 getVarsT :: (Eq a) => Term a -> [a]
 getVarsT = nub . go
   where
