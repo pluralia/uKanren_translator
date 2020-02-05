@@ -8,7 +8,7 @@ module Translator (
   ) where
 
 import           AFSyntax
-import           MKSyntax
+import           Syntax
 import           Control.Applicative (liftA2)
 import           Data.Bifunctor (bimap, first, second)
 import           Data.Biapplicative (biliftA2)
@@ -39,7 +39,7 @@ chooseDirection :: [a] -> ([a], a)
 chooseDirection vars = (init vars, last vars) 
 
 go :: Def -> F
-go def@(name, vars, goal) =
+go def@(Def name vars goal) =
   F name . fmap (toLine (chooseDirection vars)) . toDNF . prrr $ goal
   where
     prrr = trace (show $ toDNF goal)
@@ -180,7 +180,7 @@ findNameInPat name = findNameInPat'
   
 -----------------------------------------------------------------------------------------------------
 
-data PatTree = Def Pat
+data PatTree = PDef Pat
              | UndefVar Name
              | UndefCtor Name [PatTree]
   deriving (Eq, Show)
@@ -191,20 +191,20 @@ patsOrForest patForest
   | otherwise           = Left patForest
     
 isDef :: PatTree -> Bool
-isDef (Def _) = True
-isDef _       = False
+isDef (PDef _) = True
+isDef _        = False
 
 unpackDef :: PatTree -> Pat
-unpackDef (Def pat) = pat
-unpackDef _         = error "try to unpack undef term"
+unpackDef (PDef pat) = pat
+unpackDef _          = error "try to unpack undef term"
     
 pat2tree :: [Name] -> Pat -> PatTree
 pat2tree knownVars = pat2tree'
   where
     pat2tree' :: Pat -> PatTree
-    pat2tree' var@(Var v) = if v `elem` knownVars then Def var else UndefVar v
+    pat2tree' var@(Var v) = if v `elem` knownVars then PDef var else UndefVar v
     pat2tree' (Ctor ctorName pats) =
-      either (UndefCtor ctorName) (Def . Ctor ctorName) . patsOrForest $ pat2tree' <$> pats
+      either (UndefCtor ctorName) (PDef . Ctor ctorName) . patsOrForest $ pat2tree' <$> pats
 
 walk :: M.Map Name Pat -> Pat -> Pat
 walk subst = walk'
@@ -235,12 +235,12 @@ updateSubst :: M.Map Name Pat -> PatTree -> PatTree -> (M.Map Name Pat, [Undef])
 updateSubst subst = updateSubst'
   where
     updateSubst' :: PatTree -> PatTree -> (M.Map Name Pat, [Undef])
-    updateSubst' (Def pat1) (Def pat2)
+    updateSubst' (PDef pat1) (PDef pat2)
       | pat1 == pat2 = (subst, [])
       | otherwise    = error "unification fails: var & ctor || var & var"
     -- ПОСМОТРЕТЬ ЭТОТ СЛУЧАЙ ПОДРОБНЕЕ
-    updateSubst' (Def var)         (UndefCtor _ _)      = error "pattern matching in assign"
-    updateSubst' (UndefVar var)    (Def pat)            =
+    updateSubst' (PDef var)        (UndefCtor _ _)      = error "pattern matching in assign"
+    updateSubst' (UndefVar var)    (PDef pat)           =
       (M.insertWith (\_ _ -> error $ var ++ " has already defined! CURSED CHECK") var pat subst, [])
     updateSubst' var1@(UndefVar _) var2@(UndefVar _)    = (subst, [Unific var1 var2])
     updateSubst' var@(UndefVar _)  ctor@(UndefCtor _ _) = (subst, [Unific var ctor])
@@ -278,12 +278,12 @@ toAssign knownVars = toAssign' . getSubst [] M.empty []
     defPatTree knownVars'' subst = defPatTree'
       where
         defPatTree' :: PatTree -> PatTree
-        defPatTree' def@(Def _)           = def
+        defPatTree' def@(PDef _)           = def
         defPatTree' (UndefVar v)          =
           pat2tree knownVars'' $ walk subst (Var v)
         defPatTree' (UndefCtor name pats) =
           let patForest = defPatTree' <$> pats
-           in either (UndefCtor name) (Def . Ctor name) $ patsOrForest patForest
+           in either (UndefCtor name) (PDef . Ctor name) $ patsOrForest patForest
     
     -- funcs for one interation
     getAllKnownVars :: [Assign] -> [Name]

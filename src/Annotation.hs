@@ -1,10 +1,10 @@
 {-# LANGUAGE TupleSections #-}
 
-module Annotate (
+module Annotation (
     annotateGoal
   ) where
 
-import MKSyntax
+import Syntax
 
 import Data.List (nub)
 import Data.Maybe (fromMaybe)
@@ -12,8 +12,10 @@ import Data.Maybe (fromMaybe)
 
 scope :: [Def]
 scope = [
-          ("reverso",["x","y"],V "x" :=: C "Nil" [] :/\: V "y" :=: C "Nil" [] :\/: Fresh "h" (Fresh "t" (Fresh "rt" (V "x" :=: C "Cons" [V "h",V "t"] :/\: (Invoke "reverso" [V "t",V "rt"] :/\: Invoke "appendo" [V "rt",C "Cons" [V "h",C "Nil" []],V "y"])))))
-        , ("appendo",["x","y","xy"],V "x" :=: C "Nil" [] :/\: V "xy" :=: V "y" :\/: Fresh "h" (Fresh "t" (Fresh "ty" (V "x" :=: C "Cons" [V "h",V "t"] :/\: (V "xy" :=: C "Cons" [V "h",V "ty"] :/\: Invoke "appendo" [V "t",V "y",V "ty"])))))
+          Def "reverso" ["x","y"] $
+            V "x" :=: C "Nil" [] :/\: V "y" :=: C "Nil" [] :\/: Fresh "h" (Fresh "t" (Fresh "rt" (V "x" :=: C "Cons" [V "h",V "t"] :/\: (Invoke "reverso" [V "t",V "rt"] :/\: Invoke "appendo" [V "rt",C "Cons" [V "h",C "Nil" []],V "y"]))))
+        , Def "appendo" ["x","y","xy"] $
+            V "x" :=: C "Nil" [] :/\: V "xy" :=: V "y" :\/: Fresh "h" (Fresh "t" (Fresh "ty" (V "x" :=: C "Cons" [V "h",V "t"] :/\: (V "xy" :=: C "Cons" [V "h",V "ty"] :/\: Invoke "appendo" [V "t",V "y",V "ty"]))))
         ]
 {-
 getGoalBySpec :: X -> Int -> G X
@@ -48,7 +50,7 @@ annotateGoal :: [(X, Ann)] -> Name -> G X -> G (X, Ann)
 annotateGoal argsSpec mainName = f . init
   where
     init :: (Functor f) => f X -> f (X, Ann)
-    init = fmap (\x -> fromMaybe (x, Undef) $ lookup x argsSpec)
+    init = fmap (\x -> maybe (x, Undef) (\ann -> (x, ann)) $ lookup x argsSpec)
     
     f :: G (X, Ann) -> G (X, Ann)
     f (Let _ _)        = error "LET"
@@ -58,7 +60,7 @@ annotateGoal argsSpec mainName = f . init
     f inv@(Invoke name args)
       | mainName == name, length argsSpec == length args
           = Invoke name . updMainInvokeArgs $ zip (fmap snd argsSpec) args
-      | mainName == name, length mainArgs /= length args
+      | mainName == name, length argsSpec /= length args
           = error "name collision in invoke: some functions with diff number of args"
       | otherwise
           = inv

@@ -4,5 +4,7 @@ packages:
 extra-deps:
 - megaparsec-7.0.4
 - parser-combinators-1.0.3
-resolver: lts-13.29
+- github: kajigor/uKanren_transformations
+  commit: 030e0fc30d7cd40f04d3e92664ef44408e184c38
+resolver: lts-14.20
 

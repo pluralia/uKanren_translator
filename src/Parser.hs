@@ -12,7 +12,7 @@ import           Control.Monad (void)
 import           Control.Monad.Combinators.Expr
 import           Data.Void (Void(..))
 import           Data.Either (either)
-import           MKSyntax
+import           Syntax
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -198,7 +198,7 @@ parseDef = do
   args <- many ident
   symbol "="
   goal <- parseGoal
-  return (name, args, goal)
+  return $ Def name args goal
 
 
 -- let
