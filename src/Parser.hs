@@ -32,7 +32,7 @@ defsAsts :: String -> [Def]
 defsAsts = either (const []) id . runParser (many parseDef) ""
 
 strDefAsts :: String -> String
-strDefAsts = unlines . fmap show . defsAsts
+strDefAsts = unlines . fmap ((++ "\n") . show) . defsAsts
 
 defAst :: String -> Maybe Def
 defAst = either (const Nothing) Just . runParser parseDef ""

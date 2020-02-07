@@ -1,22 +1,112 @@
+:: palindromo x =
+  {reverso x x}
+
+
 :: doubleAppendo x y z r =
   [t:
     {appendo x y t} /\ {appendo t z r}]
 
+
 :: doubleo x xx =
   {appendo x x xx}
+
 
 :: emptyAppendo x y =
   {appendo [] x y}
 
+
 :: appendo123 x y =
   {appendo (succ zero) % (succ (succ zero)) % (succ (succ (succ zero))) % [] x y}
 
+
 :: appendoXyz x y z t r =
   {appendo x % y % z % [] t r}
+
+
+:: singletonReverso x y =
+  [l:
+    {lengtho x (succ zero)} /\ {reverso x y}]
+
+
+:: is5 x =
+  x === succ (succ (succ (succ (succ zero))))
+
+
+:: isNum x =
+  (x === zero) \/
+  [y:
+    x === succ y]
+
+
+:: check5 x =
+  {isNum x} /\ {is5 x}
+
+
+:: genLists x =
+  [y:
+    x === y % [] /\ {isNum y}] \/
+  [h t:
+    x === h % t /\ {isNum h} /\ {genLists t}]
+
+
+:: has5 x =
+  [h t:
+    (x === h % t /\ {is5 h}) \/
+    (x === h % t /\ {has5 t})]
+
+
+:: checkList5 x =
+  {has5 x} /\ {genLists x}
+
+
+:: checkList51 x =
+  {genLists x} /\ {has5 x}
+
+
+:: eveno x =
+  [z:
+    {addo z z x}]
+
+-----------------------------------------------------------------------------------------------------
 
 :: test l r = conde
   ([x mulx:
      l === x % [] /\ {mulo x (succ (succ zero)) mulx} /\ r === x % mulx % []])
   ([x1 x2:
      {test ((succ zero) % []) x1} /\ {test ((succ (succ zero)) % []) x2} /\ {appendo x1 x2 r}])
+
+-----------------------------------------------------------------------------------------------------
+
+:: makeX res = conde
+  (res === zero)
+  (res === succ zero)
+
+
+:: makeY x res = conde
+  (res === x)
+  (res === succ (succ zero))
+  (res === succ (succ (succ zero)))
+
+
+:: makeA res = conde
+  (res === succ (succ (succ (succ zero))))
+  (res === succ (succ (succ (succ (succ zero)))))
+
+
+:: makeB res = conde
+  (res === succ (succ (succ (succ (succ (succ zero))))))
+  (res === succ (succ (succ (succ (succ (succ (succ zero)))))))
+
+
+:: go l res = conde
+  ([sec rest x y:
+     l === succ zero % (sec % rest) /\
+     {makeX x} /\
+     {makeY x y} /\
+     res === x % y % []])
+  ([fir rest a b:
+     l === fir % succ (succ zero) % rest /\
+     {makeA a} /\
+     {makeB b} /\
+     res === a % b % []])
 

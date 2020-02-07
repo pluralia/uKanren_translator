@@ -1,10 +1,40 @@
+:: notZero x =
+  [y:
+    x === succ y]
+
+
 :: addo x y z =
   x === zero /\ z === y \/
   [x1 z1:
     x === succ x1 /\ z === succ z1 /\ {addo x1 y z1}]
 
+
 :: mulo x y z =
   x === zero /\ z === zero \/
   [x1 y1 z1:
     x === succ x1 /\ {mulo x1 y z1} /\ {addo y z1 z}]
+
+
+:: leo x y b =
+  x === zero /\ b === <true :> \/
+  [zz:
+    x === succ zz /\ y === zero /\ b === falseo] \/
+  [x1 y1:
+    x === succ x1 /\ y === succ y1 /\ {leo x1 y1 b}]
+
+
+:: gto x y b =
+  [zz:
+    x === succ zz /\ y === zero /\ b === trueo] \/
+  x === zero /\ b === falseo \/
+  [x1 y1:
+    x === succ x1 /\ y === succ y1 /\ {gto x1 y1 b}]
+
+
+:: geo x y z =
+  {leo y x z}
+
+
+:: lto x y z =
+  {gto y x z}
 
