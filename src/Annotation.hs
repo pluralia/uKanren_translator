@@ -2,6 +2,7 @@
 
 module Annotation (
     translate
+  , PreAnn(..)
   ) where
 
 
@@ -16,19 +17,11 @@ import qualified CPD.LocalControl as LC
 import qualified Eval             as E
 import           Syntax
 
-{-
-scope :: [Def]
-scope = [
-          Def "reverso" ["x","y"] $
-            V "x" :=: C "Nil" [] :/\: V "y" :=: C "Nil" [] :\/: Fresh "h" (Fresh "t" (Fresh "rt" (V "x" :=: C "Cons" [V "h",V "t"] :/\: (Invoke "reverso" [V "t",V "rt"] :/\: Invoke "appendo" [V "rt",C "Cons" [V "h",C "Nil" []],V "y"]))))
-        , Def "appendo" ["x","y","xy"] $
-            V "x" :=: C "Nil" [] :/\: V "xy" :=: V "y" :\/: Fresh "h" (Fresh "t" (Fresh "ty" (V "x" :=: C "Cons" [V "h",V "t"] :/\: (V "xy" :=: C "Cons" [V "h",V "ty"] :/\: Invoke "appendo" [V "t",V "y",V "ty"]))))
-        ]
--}
+import           Debug.Trace           (trace)
 
 ----------------------------------------------------------------------------------------------------
 
-translate :: Program -> [(X, PreAnn)] -> ([[G (S, Ann)]], Stack)
+-- translate :: Program -> [(X, PreAnn)] -> ([[G (S, Ann)]], Stack)
 translate (Program scope goal) = uncurry annotate . initTranslation gamma goal
   where
     gamma = E.updateDefsInGamma E.env0 scope
@@ -42,7 +35,7 @@ initTranslation gamma goal xPreAnn =
       normalizeGoal                                   = LC.normalize oneStepUnfoldGoal
       xAnn                                            = second preAnnToAnn <$> xPreAnn
       firAnnotateGoal                                 = fmap (initAnnotate xToTs xAnn) <$> normalizeGoal
-   in (gamma'', firAnnotateGoal)
+   in (gamma'', trace (show firAnnotateGoal ++ "\n") firAnnotateGoal)
 
 
 initAnnotate :: (X -> Ts) -> [(X, Ann)] -> G S -> G (S, Ann)
@@ -70,7 +63,10 @@ type Stack = M.Map Name (M.Map ArgsOrder [[G (S, Ann)]])
 
 maxAnn :: Term (S, Ann) -> Ann
 maxAnn (V (s, ann)) = ann
-maxAnn (C _ terms)  = fmap maximum . sequence . fmap maxAnn $ terms
+maxAnn (C _ terms)  = maybe Nothing handlingAnnList . sequence . fmap maxAnn $ terms
+  where
+    handlingAnnList :: [Word] -> Maybe Word
+    handlingAnnList list = if null list then Nothing else Just . maximum $ list
 
 
 replaceUndef :: Ann -> Term (S, Ann) -> Term (S, Ann)
@@ -127,13 +123,15 @@ getVars = nub . go
 
 ----------------------------------------------------------------------------------------------------
 
-annotate :: E.Gamma -> [[G (S, Ann)]] -> ([[G (S, Ann)]], Stack)
+-- annotate :: E.Gamma -> [[G (S, Ann)]] -> ([[G (S, Ann)]], Stack)
 annotate gamma = annotateInternal gamma . (, M.empty)
 
 
-annotateInternal :: E.Gamma -> ([[G (S, Ann)]], Stack) -> ([[G (S, Ann)]], Stack)
-annotateInternal gamma@(defByName, (_, xToTs), _) = findFixPoint
+-- annotateInternal :: E.Gamma -> ([[G (S, Ann)]], Stack) -> ([[G (S, Ann)]], Stack)
+annotateInternal gamma@(defByName, (_, xToTs), _) = annotateGoal
+-- findFixPoint
   where
+{-
     findFixPoint :: ([[G (S, Ann)]], Stack) -> ([[G (S, Ann)]], Stack)
     findFixPoint goalStack =
       let goalStack1@(goal1, _) = annotateGoal goalStack
@@ -141,9 +139,9 @@ annotateInternal gamma@(defByName, (_, xToTs), _) = findFixPoint
        in if goal1 == goal2
             then goalStack1
             else findFixPoint goalStack2
-
+-}
     execWithSt :: ((a, b) -> (a, b)) -> ([a], b) -> ([a], b)
-    execWithSt exec (list, stD) = foldl' (\(acc, st) x -> (: acc) `first` exec (x, st)) ([], stD) list
+    execWithSt exec (list, stD) = foldr (\x (acc, st) -> (: acc) `first` exec (x, st)) ([], stD) list
 
     annotateGoal :: ([[G (S, Ann)]], Stack) -> ([[G (S, Ann)]], Stack)
     annotateGoal = execWithSt annotateDisj
@@ -165,7 +163,8 @@ annotateInternal gamma@(defByName, (_, xToTs), _) = findFixPoint
           | otherwise = error "fail of ctors unification"
         meetTerm _                _ = let (t2' :=: t1') = meetTerm t2 t1 in t1 :=: t2
     
-    annotateConj info@(Invoke name terms, stack)
+    annotateConj info@(Invoke name terms, stack) = info
+{-
       | checkInStack = info
       | otherwise    = annotateByUnfolded . unfoldByDef . defByName $ name
       where
@@ -208,7 +207,7 @@ annotateInternal gamma@(defByName, (_, xToTs), _) = findFixPoint
               maybeInsts = M.lookup name updStack
               instances  = (maybe M.singleton (\x k a -> M.insert k a x) maybeInsts) argsMask goal
            in M.insert name instances updStack
-
+-}
     annotateConj _                  = error "forbidden goal for conj"
 
 ----------------------------------------------------------------------------------------------------
