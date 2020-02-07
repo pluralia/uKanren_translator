@@ -2,6 +2,7 @@ flags: {}
 packages:
 - .
 extra-deps:
+- hspec-2.7.1
 - megaparsec-7.0.4
 - parser-combinators-1.0.3
 - github: kajigor/uKanren_transformations
