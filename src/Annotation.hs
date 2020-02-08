@@ -55,8 +55,35 @@ preAnnToAnn In = Just 0
 -- Just x ~ x - binding time
 type Ann = Maybe Word
 
-type ArgsOrder = [S.Set S]
-type Stack = M.Map Name (M.Map ArgsOrder [[G (S, Ann)]])
+
+data ArgsOrder = ArgsOrder [(Ann, S.Set S)] [[G (S, Ann)]]
+  deriving (Show)
+
+instance Eq ArgsOrder where
+  (ArgsOrder ao1 _) == (ArgsOrder ao2 _) = cmp (getOrderMasks ao1) (getOrderMasks ao2)
+    where
+      getOrderMasks :: [(Ann, S.Set S)] -> [[S]]
+      getOrderMasks = fmap (S.toList . snd)
+
+      cmp :: [[S]] -> [[S]] -> Bool
+      cmp []       []       = True
+      cmp x        []       = True
+      cmp []       y        = True
+      cmp xss@(x : xs) yss@(y : ys) = (x == y) && cmp xs ys ||
+                                      go x (concat yss) && cmp xs (rem x yss)  ||
+                                      go y (concat xss) && cmp (rem y xss) ys
+        where
+          go :: [S] -> [S] -> Bool
+          go []       _  = True
+          go (x : xs) ys = x `elem` ys && go xs ys
+
+          rem :: [S] -> [[S]] -> [[S]]
+          rem xs = fmap (filter (`notElem` xs))
+  
+instance Ord ArgsOrder where
+  (ArgsOrder argsOrder1 _) <= (ArgsOrder argsOrder2 _) = fmap snd argsOrder1 <= fmap snd argsOrder2
+
+type Stack = M.Map Name (S.Set ArgsOrder)
 
 ----------------------------------------------------------------------------------------------------
 
@@ -82,12 +109,17 @@ replaceUndef ann v@(V (_, oldAnn)) = if ann < oldAnn then error "breaking monoto
 replaceUndef ann (C name terms)    = C name . fmap (replaceUndef ann) $ terms
 
 
-argsOrder :: [Term (S, Ann)] -> ArgsOrder
-argsOrder terms = fmap (S.fromList . fmap fst)
-                . groupBy (\(_, ann1) (_, ann2) -> ann1 == ann2)
-                . sortBy (\(_, ann1) (_, ann2) -> compare ann1 ann2)
-                . zip [0..]
-                . fmap maxAnn $ terms
+argsOrder :: [Term (S, Ann)] -> [[G (S, Ann)]] -> ArgsOrder
+argsOrder terms = ArgsOrder (zip annOfEveryGroup (fmap (S.fromList . fmap fst) groupedS))
+  where
+    groupedS :: [[(S, Ann)]]
+    groupedS = groupBy (\(_, ann1) (_, ann2) -> ann1 == ann2)
+             . sortBy (\(_, ann1) (_, ann2) -> compare ann1 ann2)
+             . zip [0..]
+             . fmap maxAnn $ terms
+ 
+    annOfEveryGroup :: [Ann]
+    annOfEveryGroup = fmap (snd . head) groupedS
 
 ----------------------------------------------------------------------------------------------------
 
@@ -131,19 +163,19 @@ getVars = nub . go
 ----------------------------------------------------------------------------------------------------
 
 annotate :: E.Gamma -> [[G (S, Ann)]] -> ([[G (S, Ann)]], Stack)
-annotate gamma = annotateInternal gamma . (, M.empty)
+annotate gamma goal = annotateInternal gamma . (, M.empty) $ goal
 
 
 annotateInternal :: E.Gamma -> ([[G (S, Ann)]], Stack) -> ([[G (S, Ann)]], Stack)
-annotateInternal gamma@(defByName, (_, xToTs), _) = findFixPoint
+annotateInternal gamma@(defByName, (_, xToTs), _) = fixPoint
   where
-    findFixPoint :: ([[G (S, Ann)]], Stack) -> ([[G (S, Ann)]], Stack)
-    findFixPoint goalStack =
+    fixPoint :: ([[G (S, Ann)]], Stack) -> ([[G (S, Ann)]], Stack)
+    fixPoint goalStack =
       let goalStack1 = annotateGoal goalStack
           goalStack2 = annotateGoal goalStack1
        in if goalStack1 == goalStack2
             then goalStack1
-            else findFixPoint goalStack2
+            else fixPoint goalStack2
 
     execWithSt :: ((a, b) -> (a, b)) -> ([a], b) -> ([a], b)
     execWithSt exec (list, stD) = foldr (\x (acc, st) -> (: acc) `first` exec (x, st)) ([], stD) list
@@ -168,32 +200,34 @@ annotateInternal gamma@(defByName, (_, xToTs), _) = findFixPoint
           | otherwise = error "fail of ctors unification"
         meetTerm _                _ = let (t2' :=: t1') = meetTerm t2 t1 in t1 :=: t2
     
-    annotateConj info@(Invoke name terms, stack)
-      | atLeastOneNotUndef =
-          trace ("not undef " ++ show (argsOrder terms, info)) $ info
-      | checkInStack       =
-          trace ("in stack " ++ show (argsOrder terms, info)) $ (Invoke name selfUpdTerms, stack)
-      | otherwise          =
-          trace ("not in stack " ++ show (argsOrder terms, info)) $ annotateByUnfolded . unfoldByDef . defByName $ name
+    annotateConj goal@(Invoke name terms, stack)
+      | isAllUndef   = goal
+      | checkInStack = updConj selfUpdTerms undefined
+      | otherwise    = annotateUnfolded . unfoldByDef . defByName $ name
       where
-        -- at least one of the argument is not Undef
-        atLeastOneNotUndef :: Bool
-        atLeastOneNotUndef = isNothing $ maxAnnList terms
+        -- general funcs
+        addToStack :: [Term (S, Ann)] -> [[G (S, Ann)]] -> Stack -> Stack
+        addToStack terms goal stack =
+          let updArgsOrderSet = maybe S.empty (S.insert (argsOrder terms goal)) $ M.lookup name stack
+           in M.insert name updArgsOrderSet stack
+        
+        updTermsByAnn :: [Ann] -> [Term (S, Ann)]
+        updTermsByAnn anns = uncurry replaceUndef <$> zip anns terms
+
+        -- if all terms undefined - skip it
+        isAllUndef :: Bool
+        isAllUndef = isNothing $ maxAnnList terms
 
         -- in stack
         checkInStack :: Bool
-        checkInStack = isJust $ do
-          argsOrderToGoal <- M.lookup name stack
-          goal            <- M.lookup (argsOrder terms) argsOrderToGoal
-          return goal --          if null goal then Nothing else return goal
+        checkInStack = maybe False (S.member (argsOrder terms undefined)) $ M.lookup name stack
 
         selfUpdTerms :: [Term (S, Ann)]
-        selfUpdTerms =
-          let ann      = fmap succ $ maxAnnList terms
-              anns     = replicate (length terms) ann
-              updTerms = uncurry replaceUndef <$> zip anns terms
-           in updTerms
-        
+        selfUpdTerms = updTermsByAnn . replicate (length terms) . fmap succ . maxAnnList $ terms
+
+        updConj :: [Term (S, Ann)] -> [[G (S, Ann)]] -> (G (S, Ann), Stack)
+        updConj updTerms goal = (Invoke name updTerms, addToStack updTerms goal stack)
+
         -- not in stack
         unfoldByDef :: Def -> ([[G (S, Ann)]], [S], Stack)
         unfoldByDef (Def _ args goal) =
@@ -202,41 +236,23 @@ annotateInternal gamma@(defByName, (_, xToTs), _) = findFixPoint
               xAnn                  = zip args (maxAnn <$> terms)
               firAnnotateGoal       = fmap (initAnnotate xToTs xAnn) <$> normalizeGoal
               interestS             = fmap ((\(V s) -> s) . xToTs) args
-              stackWithUnfold       = addToStack terms [] stack
-           in (firAnnotateGoal, interestS, stackWithUnfold)
+              stackWithTheGoal      = addToStack terms firAnnotateGoal stack
+           in (firAnnotateGoal, interestS, stackWithTheGoal)
 
-        addToStack :: [Term (S, Ann)] -> [[G (S, Ann)]] -> Stack -> Stack
-        addToStack terms goal stack =
-          let argsMask   = argsOrder terms
-              maybeInsts = M.lookup name stack
-              instances  = (maybe M.singleton (\x k a -> M.insert k a x) maybeInsts) argsMask goal
-           in M.insert name instances stack
-
-        deleteFromStack :: [Term (S, Ann)] -> Stack -> Stack
-        deleteFromStack terms stack =
-          let argsMask   = argsOrder terms
-              maybeInsts = (M.lookup name stack) >>= (return . M.delete argsMask)
-              instances  = fromMaybe (error "AAA") maybeInsts
-           in M.insert name instances stack
-              
-
-        annotateByUnfolded :: ([[G (S, Ann)]], [S], Stack) -> (G (S, Ann), Stack)
-        annotateByUnfolded (goal, interestS, stackWithUnfold) =
-          let (annotateGoal, updStack) = annotateInternal gamma (goal, stackWithUnfold)
-              interestAnn              = annByGoal interestS annotateGoal
-              updTerms                 = updTermsAnn interestAnn
-              updUpdStack              = addToStack updTerms goal (deleteFromStack terms updStack)
+        annotateUnfolded :: ([[G (S, Ann)]], [S], Stack) -> (G (S, Ann), Stack)
+        annotateUnfolded (goal, interestS, stackWithTheGoal) =
+          let (annotateGoal, updStack) = annotateInternal gamma (goal, stackWithTheGoal)
+              argsAnns                 = argsAnnsByGoal interestS annotateGoal
+              updTerms                 = updTermsByAnn argsAnns
+              updUpdStack              = addToStack updTerms annotateGoal updStack
            in (Invoke name updTerms, updUpdStack)
 
-        annByGoal :: [S] -> [[G (S, Ann)]] -> [Ann]
-        annByGoal interestS goal = fmap (\s -> fromMaybe Nothing $ M.lookup s sToAnn) interestS
-          where
-            sToAnn :: M.Map S Ann
-            sToAnn =
-              M.fromList . filter (\(s, _) -> s `elem` interestS) . commonVarAnns . concat $ goal
-
-        updTermsAnn :: [Ann] -> [Term (S, Ann)]
-        updTermsAnn = fmap (uncurry (flip replaceUndef)) . zip terms
+        argsAnnsByGoal :: [S] -> [[G (S, Ann)]] -> [Ann]
+        argsAnnsByGoal interestS goal = 
+          let varAnns  = commonVarAnns . concat $ goal
+              sToAnn   = M.fromList . filter ((`elem` interestS) . fst) $ varAnns
+              argsAnns = (\s -> fromMaybe Nothing $ M.lookup s sToAnn) <$> interestS
+           in argsAnns
 
     annotateConj _                  = error "forbidden goal for conj"
 
