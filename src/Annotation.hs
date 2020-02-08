@@ -2,14 +2,14 @@
 
 module Annotation (
     translate
-  , PreAnn(..)
+  , PreAnn (..)
   ) where
 
 
 import           Data.Bifunctor        (first, second)
 import           Data.Foldable         (foldl')
 import qualified Data.Map.Strict  as M
-import           Data.Maybe            (fromMaybe, isJust)
+import           Data.Maybe            (fromMaybe, isJust, catMaybes, isNothing)
 import           Data.List             (groupBy, sortBy, nub)
 import qualified Data.Set         as S
 
@@ -21,7 +21,7 @@ import           Debug.Trace           (trace)
 
 ----------------------------------------------------------------------------------------------------
 
--- translate :: Program -> [(X, PreAnn)] -> ([[G (S, Ann)]], Stack)
+translate :: Program -> [(X, PreAnn)] -> ([[G (S, Ann)]], Stack)
 translate (Program scope goal) = uncurry annotate . initTranslation gamma goal
   where
     gamma = E.updateDefsInGamma E.env0 scope
@@ -30,12 +30,11 @@ translate (Program scope goal) = uncurry annotate . initTranslation gamma goal
 
 initTranslation ::  E.Gamma -> G X -> [(X, PreAnn)] -> (E.Gamma, [[G (S, Ann)]])
 initTranslation gamma goal xPreAnn =
-  let (goalWithoutFreshes, gamma', _)                 = E.preEval gamma goal
-      (oneStepUnfoldGoal, gamma''@(_, (_, xToTs), _)) = LC.oneStepUnfold goalWithoutFreshes gamma'
-      normalizeGoal                                   = LC.normalize oneStepUnfoldGoal
-      xAnn                                            = second preAnnToAnn <$> xPreAnn
-      firAnnotateGoal                                 = fmap (initAnnotate xToTs xAnn) <$> normalizeGoal
-   in (gamma'', trace (show firAnnotateGoal ++ "\n") firAnnotateGoal)
+  let (unfreshesGoal, gamma'@(_, (_, xToTs), _), _) = E.preEval gamma goal
+      normalizeGoal                                 = LC.normalize unfreshesGoal
+      xAnn                                          = second preAnnToAnn <$> xPreAnn
+      firAnnotateGoal                               = fmap (initAnnotate xToTs xAnn) <$> normalizeGoal
+   in (gamma', trace (show firAnnotateGoal ++ "\n") firAnnotateGoal)
 
 
 initAnnotate :: (X -> Ts) -> [(X, Ann)] -> G S -> G (S, Ann)
@@ -67,6 +66,14 @@ maxAnn (C _ terms)  = maybe Nothing handlingAnnList . sequence . fmap maxAnn $ t
   where
     handlingAnnList :: [Word] -> Maybe Word
     handlingAnnList list = if null list then Nothing else Just . maximum $ list
+
+
+maxAnnList :: [Term (S, Ann)] -> Ann
+maxAnnList terms =
+  let annList = catMaybes . fmap maxAnn $ terms
+   in if null annList
+        then Nothing
+        else Just . maximum $ annList
 
 
 replaceUndef :: Ann -> Term (S, Ann) -> Term (S, Ann)
@@ -123,23 +130,21 @@ getVars = nub . go
 
 ----------------------------------------------------------------------------------------------------
 
--- annotate :: E.Gamma -> [[G (S, Ann)]] -> ([[G (S, Ann)]], Stack)
+annotate :: E.Gamma -> [[G (S, Ann)]] -> ([[G (S, Ann)]], Stack)
 annotate gamma = annotateInternal gamma . (, M.empty)
 
 
--- annotateInternal :: E.Gamma -> ([[G (S, Ann)]], Stack) -> ([[G (S, Ann)]], Stack)
-annotateInternal gamma@(defByName, (_, xToTs), _) = annotateGoal
--- findFixPoint
+annotateInternal :: E.Gamma -> ([[G (S, Ann)]], Stack) -> ([[G (S, Ann)]], Stack)
+annotateInternal gamma@(defByName, (_, xToTs), _) = findFixPoint
   where
-{-
     findFixPoint :: ([[G (S, Ann)]], Stack) -> ([[G (S, Ann)]], Stack)
     findFixPoint goalStack =
-      let goalStack1@(goal1, _) = annotateGoal goalStack
-          goalStack2@(goal2, _) = annotateGoal goalStack1
-       in if goal1 == goal2
+      let goalStack1 = annotateGoal goalStack
+          goalStack2 = annotateGoal goalStack1
+       in if goalStack1 == goalStack2
             then goalStack1
             else findFixPoint goalStack2
--}
+
     execWithSt :: ((a, b) -> (a, b)) -> ([a], b) -> ([a], b)
     execWithSt exec (list, stD) = foldr (\x (acc, st) -> (: acc) `first` exec (x, st)) ([], stD) list
 
@@ -163,51 +168,76 @@ annotateInternal gamma@(defByName, (_, xToTs), _) = annotateGoal
           | otherwise = error "fail of ctors unification"
         meetTerm _                _ = let (t2' :=: t1') = meetTerm t2 t1 in t1 :=: t2
     
-    annotateConj info@(Invoke name terms, stack) = info
-{-
-      | checkInStack = info
-      | otherwise    = annotateByUnfolded . unfoldByDef . defByName $ name
+    annotateConj info@(Invoke name terms, stack)
+      | atLeastOneNotUndef =
+          trace ("not undef " ++ show (argsOrder terms, info)) $ info
+      | checkInStack       =
+          trace ("in stack " ++ show (argsOrder terms, info)) $ (Invoke name selfUpdTerms, stack)
+      | otherwise          =
+          trace ("not in stack " ++ show (argsOrder terms, info)) $ annotateByUnfolded . unfoldByDef . defByName $ name
       where
+        -- at least one of the argument is not Undef
+        atLeastOneNotUndef :: Bool
+        atLeastOneNotUndef = isNothing $ maxAnnList terms
+
+        -- in stack
         checkInStack :: Bool
-        checkInStack = isJust $ M.lookup name stack >>= M.lookup (argsOrder terms)
+        checkInStack = isJust $ do
+          argsOrderToGoal <- M.lookup name stack
+          goal            <- M.lookup (argsOrder terms) argsOrderToGoal
+          return goal --          if null goal then Nothing else return goal
 
-        unfoldByDef :: Def -> ([[G (S, Ann)]], [S])
+        selfUpdTerms :: [Term (S, Ann)]
+        selfUpdTerms =
+          let ann      = fmap succ $ maxAnnList terms
+              anns     = replicate (length terms) ann
+              updTerms = uncurry replaceUndef <$> zip anns terms
+           in updTerms
+        
+        -- not in stack
+        unfoldByDef :: Def -> ([[G (S, Ann)]], [S], Stack)
         unfoldByDef (Def _ args goal) =
-          let (goalWithoutFreshes, _, _) = E.preEval gamma goal
-              normalizeGoal              = LC.normalize goalWithoutFreshes
-              xAnn                       = zip args (maxAnn <$> terms)
-              firAnnotateGoal            = fmap (initAnnotate xToTs xAnn) <$> normalizeGoal
-              interestS                  = fmap ((\(V s) -> s) . xToTs) args
-           in (firAnnotateGoal, interestS)
+          let (unfreshesGoal, _, _) = E.preEval gamma goal
+              normalizeGoal         = LC.normalize unfreshesGoal
+              xAnn                  = zip args (maxAnn <$> terms)
+              firAnnotateGoal       = fmap (initAnnotate xToTs xAnn) <$> normalizeGoal
+              interestS             = fmap ((\(V s) -> s) . xToTs) args
+              stackWithUnfold       = addToStack terms [] stack
+           in (firAnnotateGoal, interestS, stackWithUnfold)
 
-        annotateByUnfolded :: ([[G (S, Ann)]], [S]) -> (G (S, Ann), Stack)
-        annotateByUnfolded (goal, interestS) =
-          let (annotateGoal, updStack) = annotateInternal gamma (goal, stack)
+        addToStack :: [Term (S, Ann)] -> [[G (S, Ann)]] -> Stack -> Stack
+        addToStack terms goal stack =
+          let argsMask   = argsOrder terms
+              maybeInsts = M.lookup name stack
+              instances  = (maybe M.singleton (\x k a -> M.insert k a x) maybeInsts) argsMask goal
+           in M.insert name instances stack
+
+        deleteFromStack :: [Term (S, Ann)] -> Stack -> Stack
+        deleteFromStack terms stack =
+          let argsMask   = argsOrder terms
+              maybeInsts = (M.lookup name stack) >>= (return . M.delete argsMask)
+              instances  = fromMaybe (error "AAA") maybeInsts
+           in M.insert name instances stack
+              
+
+        annotateByUnfolded :: ([[G (S, Ann)]], [S], Stack) -> (G (S, Ann), Stack)
+        annotateByUnfolded (goal, interestS, stackWithUnfold) =
+          let (annotateGoal, updStack) = annotateInternal gamma (goal, stackWithUnfold)
               interestAnn              = annByGoal interestS annotateGoal
               updTerms                 = updTermsAnn interestAnn
-              updUpdStack              = makeStackUpdIf interestAnn updTerms goal $ updStack
+              updUpdStack              = addToStack updTerms goal (deleteFromStack terms updStack)
            in (Invoke name updTerms, updUpdStack)
 
         annByGoal :: [S] -> [[G (S, Ann)]] -> [Ann]
         annByGoal interestS goal = fmap (\s -> fromMaybe Nothing $ M.lookup s sToAnn) interestS
           where
             sToAnn :: M.Map S Ann
-            sToAnn = M.fromList . filter (\(s, _) -> s `elem` interestS) . commonVarAnns . concat $ goal
+            sToAnn =
+              M.fromList . filter (\(s, _) -> s `elem` interestS) . commonVarAnns . concat $ goal
 
         updTermsAnn :: [Ann] -> [Term (S, Ann)]
         updTermsAnn = fmap (uncurry (flip replaceUndef)) . zip terms
 
-        makeStackUpdIf :: [Ann] -> [Term (S, Ann)] -> [[G (S, Ann)]] -> Stack -> Stack
-        makeStackUpdIf interestAnn updTerms goal =
-          maybe id (\_ -> addToStack updTerms goal) $ sequence interestAnn
-
-        addToStack :: [Term (S, Ann)] -> [[G (S, Ann)]] -> Stack -> Stack
-        addToStack updTerms goal updStack =
-          let argsMask   = argsOrder updTerms
-              maybeInsts = M.lookup name updStack
-              instances  = (maybe M.singleton (\x k a -> M.insert k a x) maybeInsts) argsMask goal
-           in M.insert name instances updStack
--}
     annotateConj _                  = error "forbidden goal for conj"
 
 ----------------------------------------------------------------------------------------------------
