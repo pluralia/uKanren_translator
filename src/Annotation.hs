@@ -34,7 +34,7 @@ initTranslation gamma goal xPreAnn =
       normalizeGoal                                 = LC.normalize unfreshesGoal
       xAnn                                          = second preAnnToAnn <$> xPreAnn
       firAnnotateGoal                               = fmap (initAnnotate xToTs xAnn) <$> normalizeGoal
-   in (gamma', trace (show firAnnotateGoal ++ "\n") firAnnotateGoal)
+   in (gamma', firAnnotateGoal)
 
 
 initAnnotate :: (X -> Ts) -> [(X, Ann)] -> G S -> G (S, Ann)
@@ -92,7 +92,7 @@ maxAnn (V (s, ann)) = ann
 maxAnn (C _ terms)  = maybe Nothing handlingAnnList . sequence . fmap maxAnn $ terms
   where
     handlingAnnList :: [Word] -> Maybe Word
-    handlingAnnList list = if null list then Nothing else Just . maximum $ list
+    handlingAnnList list = Just $ if null list then 1 else maximum list
 
 
 maxAnnList :: [Term (S, Ann)] -> Ann
@@ -105,7 +105,7 @@ maxAnnList terms =
 
 replaceUndef :: Ann -> Term (S, Ann) -> Term (S, Ann)
 replaceUndef ann (V (s, Nothing))  = V (s, ann)
-replaceUndef ann v@(V (_, oldAnn)) = if ann < oldAnn then error "breaking monotony" else v
+replaceUndef ann v@(V (_, oldAnn)) = v -- if ann < oldAnn then error "breaking monotony" else v
 replaceUndef ann (C name terms)    = C name . fmap (replaceUndef ann) $ terms
 
 
@@ -201,22 +201,22 @@ annotateInternal gamma@(defByName, (_, xToTs), _) = fixPoint
         meetTerm _                _ = let (t2' :=: t1') = meetTerm t2 t1 in t1 :=: t2
     
     annotateConj goal@(Invoke name terms, stack)
-      | isAllUndef   = goal
-      | checkInStack = updConj selfUpdTerms undefined
-      | otherwise    = annotateUnfolded . unfoldByDef . defByName $ name
+      | isSkippable  = trace ("skippable" ++ show terms) goal
+      | checkInStack = trace (unlines ["inStack", show stack, show terms]) (Invoke name selfUpdTerms, stack)
+      | otherwise    = trace ("notInStack" ++ show terms) annotateUnfolded . unfoldByDef . defByName $ name
       where
         -- general funcs
         addToStack :: [Term (S, Ann)] -> [[G (S, Ann)]] -> Stack -> Stack
         addToStack terms goal stack =
-          let updArgsOrderSet = maybe S.empty (S.insert (argsOrder terms goal)) $ M.lookup name stack
+          let updArgsOrderSet = S.insert (argsOrder terms goal) . fromMaybe S.empty $ M.lookup name stack
            in M.insert name updArgsOrderSet stack
         
         updTermsByAnn :: [Ann] -> [Term (S, Ann)]
         updTermsByAnn anns = uncurry replaceUndef <$> zip anns terms
 
-        -- if all terms undefined - skip it
-        isAllUndef :: Bool
-        isAllUndef = isNothing $ maxAnnList terms
+        -- if all terms undefined or all term annotated - skip it
+        isSkippable :: Bool
+        isSkippable = isNothing (maxAnnList terms) || isJust (maxAnn $ C "" terms)
 
         -- in stack
         checkInStack :: Bool
@@ -225,27 +225,25 @@ annotateInternal gamma@(defByName, (_, xToTs), _) = fixPoint
         selfUpdTerms :: [Term (S, Ann)]
         selfUpdTerms = updTermsByAnn . replicate (length terms) . fmap succ . maxAnnList $ terms
 
-        updConj :: [Term (S, Ann)] -> [[G (S, Ann)]] -> (G (S, Ann), Stack)
-        updConj updTerms goal = (Invoke name updTerms, addToStack updTerms goal stack)
-
         -- not in stack
-        unfoldByDef :: Def -> ([[G (S, Ann)]], [S], Stack)
+        unfoldByDef :: Def -> ([S], E.Gamma, [[G (S, Ann)]], Stack)
         unfoldByDef (Def _ args goal) =
-          let (unfreshesGoal, _, _) = E.preEval gamma goal
-              normalizeGoal         = LC.normalize unfreshesGoal
-              xAnn                  = zip args (maxAnn <$> terms)
-              firAnnotateGoal       = fmap (initAnnotate xToTs xAnn) <$> normalizeGoal
-              interestS             = fmap ((\(V s) -> s) . xToTs) args
-              stackWithTheGoal      = addToStack terms firAnnotateGoal stack
-           in (firAnnotateGoal, interestS, stackWithTheGoal)
+          let (unfreshesGoal, gamma', _) = E.preEval gamma goal
+              xToTs                      = (\(_, iota, _) -> snd iota) gamma'
+              normalizeGoal              = LC.normalize unfreshesGoal
+              xAnn                       = zip args (maxAnn <$> terms)
+              firAnnotateGoal            = fmap (initAnnotate xToTs xAnn) <$> normalizeGoal
+              interestS                  = fmap ((\(V s) -> s) . xToTs) args
+              stackWithTheGoal           = addToStack terms firAnnotateGoal stack
+           in trace (unlines ["firAnnGoal", show firAnnotateGoal, "xAnn", show xAnn, "interestS", show interestS, "stackWithTheGoal", show stackWithTheGoal]) (interestS, gamma', firAnnotateGoal, stackWithTheGoal)
 
-        annotateUnfolded :: ([[G (S, Ann)]], [S], Stack) -> (G (S, Ann), Stack)
-        annotateUnfolded (goal, interestS, stackWithTheGoal) =
+        annotateUnfolded :: ([S], E.Gamma, [[G (S, Ann)]], Stack) -> (G (S, Ann), Stack)
+        annotateUnfolded (interestS, gamma, goal, stackWithTheGoal) =
           let (annotateGoal, updStack) = annotateInternal gamma (goal, stackWithTheGoal)
               argsAnns                 = argsAnnsByGoal interestS annotateGoal
               updTerms                 = updTermsByAnn argsAnns
               updUpdStack              = addToStack updTerms annotateGoal updStack
-           in (Invoke name updTerms, updUpdStack)
+           in trace (unlines ["annotateGoal", show annotateGoal]) (Invoke name updTerms, updUpdStack)
 
         argsAnnsByGoal :: [S] -> [[G (S, Ann)]] -> [Ann]
         argsAnnsByGoal interestS goal = 
