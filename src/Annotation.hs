@@ -1,4 +1,5 @@
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Annotation (
     translate
@@ -10,8 +11,9 @@ import           Data.Bifunctor        (first, second)
 import           Data.Foldable         (foldl')
 import qualified Data.Map.Strict  as M
 import           Data.Maybe            (fromMaybe, isJust, catMaybes, isNothing)
-import           Data.List             (groupBy, sortBy, nub)
+import           Data.List             (groupBy, sortBy, nub, intercalate)
 import qualified Data.Set         as S
+import Text.Printf
 
 import qualified CPD.LocalControl as LC
 import qualified Eval             as E
@@ -19,28 +21,32 @@ import           Syntax
 
 import           Debug.Trace           (trace)
 
+
 ----------------------------------------------------------------------------------------------------
 
 translate :: Program -> [(X, PreAnn)] -> ([[G (S, Ann)]], Stack)
-translate (Program scope goal) = uncurry annotate . initTranslation gamma goal
+translate (Program scope goal) = uncurry annotate . initTranslation gamma (trace (E.showInt iota) goal)
   where
-    gamma = E.updateDefsInGamma E.env0 scope
+    gamma@(_, iota, _) = E.updateDefsInGamma E.env0 scope
 
 ----------------------------------------------------------------------------------------------------
 
 initTranslation ::  E.Gamma -> G X -> [(X, PreAnn)] -> (E.Gamma, [[G (S, Ann)]])
 initTranslation gamma goal xPreAnn =
-  let (unfreshesGoal, gamma'@(_, (_, xToTs), _), _) = E.preEval gamma goal
-      normalizeGoal                                 = LC.normalize unfreshesGoal
-      xAnn                                          = second preAnnToAnn <$> xPreAnn
-      firAnnotateGoal                               = fmap (initAnnotate xToTs xAnn) <$> normalizeGoal
-   in (gamma', firAnnotateGoal)
+  let (_, iota, _) = gamma
+   in trace (E.showInt iota) $ 
+     let
+         (unfreshesGoal, gamma'@(_, (_, xToTs), _), _) = E.preEval gamma goal
+         normalizeGoal                                 = LC.normalize unfreshesGoal
+         xAnn                                          = second preAnnToAnn <$> xPreAnn
+         firAnnotateGoal                               = fmap (initAnnotate xToTs xAnn) <$> normalizeGoal
+      in (gamma', firAnnotateGoal)
 
 
 initAnnotate :: (X -> Ts) -> [(X, Ann)] -> G S -> G (S, Ann)
 initAnnotate xToTs xAnn = fmap (\s -> (s, fromMaybe Nothing $ lookup s sAnn))
   where
-    sAnn = first ((\(V s) -> s) . xToTs) <$> xAnn
+    sAnn = (\(x, ann) -> fmap (, ann) . getVarsT . xToTs $ x) `concatMap` xAnn
 
 ----------------------------------------------------------------------------------------------------
 
@@ -57,7 +63,6 @@ type Ann = Maybe Word
 
 
 data ArgsOrder = ArgsOrder [(Ann, S.Set S)] [[G (S, Ann)]]
-  deriving (Show)
 
 instance Eq ArgsOrder where
   (ArgsOrder ao1 _) == (ArgsOrder ao2 _) = cmp (getOrderMasks ao1) (getOrderMasks ao2)
@@ -82,6 +87,7 @@ instance Eq ArgsOrder where
   
 instance Ord ArgsOrder where
   (ArgsOrder argsOrder1 _) <= (ArgsOrder argsOrder2 _) = fmap snd argsOrder1 <= fmap snd argsOrder2
+
 
 type Stack = M.Map Name (S.Set ArgsOrder)
 
@@ -184,7 +190,14 @@ annotateInternal gamma@(defByName, (_, xToTs), _) = fixPoint
     annotateGoal = execWithSt annotateDisj
 
     annotateDisj :: ([G (S, Ann)], Stack) -> ([G (S, Ann)], Stack)
-    annotateDisj = first meetGoals . execWithSt annotateConj
+    annotateDisj (list, stD) =
+      first meetGoals .
+      foldl'
+        (\(acc, st) x -> ((acc ++) . (:[])) `first` annotateConj (castMeetGoal x acc, st))
+        ([], stD) $ list
+
+    castMeetGoal :: G (S, Ann) -> [G (S, Ann)] -> G (S, Ann)
+    castMeetGoal x acc = head $ meetGoals (x : acc)
 
     annotateConj :: (G (S, Ann), Stack) -> (G (S, Ann), Stack)
     annotateConj (unif@(t1 :=: t2), stack) = (meetTerm t1 t2, stack)
@@ -200,7 +213,7 @@ annotateInternal gamma@(defByName, (_, xToTs), _) = fixPoint
           | otherwise = error "fail of ctors unification"
         meetTerm _                _ = let (t2' :=: t1') = meetTerm t2 t1 in t1 :=: t2
     
-    annotateConj goal@(Invoke name terms, stack)
+    annotateConj goal@(invoke@(Invoke name terms), stack)
       | isSkippable  = trace ("skippable" ++ show terms) goal
       | checkInStack = trace (unlines ["inStack", show stack, show terms]) (Invoke name selfUpdTerms, stack)
       | otherwise    = trace ("notInStack" ++ show terms) annotateUnfolded . unfoldByDef . defByName $ name
@@ -227,13 +240,13 @@ annotateInternal gamma@(defByName, (_, xToTs), _) = fixPoint
 
         -- not in stack
         unfoldByDef :: Def -> ([S], E.Gamma, [[G (S, Ann)]], Stack)
-        unfoldByDef (Def _ args goal) =
-          let (unfreshesGoal, gamma', _) = E.preEval gamma goal
+        unfoldByDef (Def _ args goal') =
+          let (unfreshesGoal, gamma') = LC.oneStepUnfold (fst <$> invoke) gamma
               xToTs                      = (\(_, iota, _) -> snd iota) gamma'
               normalizeGoal              = LC.normalize unfreshesGoal
               xAnn                       = zip args (maxAnn <$> terms)
               firAnnotateGoal            = fmap (initAnnotate xToTs xAnn) <$> normalizeGoal
-              interestS                  = fmap ((\(V s) -> s) . xToTs) args
+              interestS                  = (getVarsT . xToTs) `concatMap` args
               stackWithTheGoal           = addToStack terms firAnnotateGoal stack
            in trace (unlines ["firAnnGoal", show firAnnotateGoal, "xAnn", show xAnn, "interestS", show interestS, "stackWithTheGoal", show stackWithTheGoal]) (interestS, gamma', firAnnotateGoal, stackWithTheGoal)
 
@@ -253,5 +266,40 @@ annotateInternal gamma@(defByName, (_, xToTs), _) = fixPoint
            in argsAnns
 
     annotateConj _                  = error "forbidden goal for conj"
+
+----------------------------------------------------------------------------------------------------
+
+instance Show ArgsOrder where
+  show (ArgsOrder a b) =
+       "\n===============================\n"
+    ++ intercalate "   |   " (printMask <$> a) ++ "\n" ++ show (foldl1 (|||) ((foldl1 (&&&)) <$> b))
+    where
+      printMask :: (Ann, S.Set S) -> String
+      printMask (ann, set) = maybe "undef" (\x -> "ann " ++ show x) ann ++ ": " ++ intercalate " " (show <$> S.toList set)
+
+showVar' :: (S, Ann) -> String
+showVar' (s, ann) = "v." ++ show s ++ ".a." ++ maybe "undef" show ann
+
+
+instance {-# OVERLAPPING #-} Show (Term (S, Ann)) where
+  show (V v) = showVar' v
+  show (C name []) | isNil name = "[]"
+  show (C name [h, t]) | isCons name = printf "(%s : %s)" (show h) (show t)
+  show c | isSucc c || isZero c = pretifyNum 0 c show showVar
+  show (C name ts) =
+            case ts of
+              [] -> name
+              _  -> printf "C %s [%s]" name (intercalate ", " $ map show ts)
+
+
+instance {-# OVERLAPPING #-} Show (G (S, Ann)) where
+  show (t1 :=:  t2)               = printf "%s = %s" (show t1) (show t2)
+  show (g1 :/\: g2)               = printf "(%s /\\ %s)" (show g1) (show g2)
+  show (g1 :\/: g2)               = printf "(%s \\/ %s)" (show g1) (show g2)
+  show (Fresh name g)             =
+    let (names, goal) = freshVars [name] g in
+    printf "fresh %s (%s)" (unwords $ map show $ reverse names) (show goal)
+  show (Invoke name ts)           = printf "%s %s" name (unwords $ map (\x -> if ' ' `elem` x then printf "(%s)" x else x) $ map show ts)
+  show (Let (Def name args body) g) = printf "let %s %s = %s in %s" name (unwords args) (show body) (show g)
 
 ----------------------------------------------------------------------------------------------------
