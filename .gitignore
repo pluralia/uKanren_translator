@@ -1,0 +1,16 @@
+
+.stack-work/
+
+stack.yaml.lock
+
+bta/SEIM-2020.aux
+
+bta/SEIM-2020.blg
+
+bta/SEIM-2020.fdb_latexmk
+
+bta/SEIM-2020.fls
+
+bta/SEIM-2020.log
+
+bta/SEIM-2020.synctex.gz
