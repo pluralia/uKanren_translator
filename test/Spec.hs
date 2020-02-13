@@ -5,12 +5,15 @@ module Main (
 import           Control.Monad        ((>=>))
 import qualified Data.Map.Strict as M
 import           Data.Maybe           (fromMaybe)
-import           Data.List            (nub, union)
+import           Data.List            (nub, union, intercalate)
+import qualified Data.Set as S
 import           Syntax
 import           Test.Hspec
 
 import           Annotation           (translate, PreAnn(..))
 import           Parser               (defsAsts)
+
+import Program.Prop
 
 -----------------------------------------------------------------------------------------------------
 
@@ -64,11 +67,24 @@ main = do
     (print . defsByNames nameToDef)
     splitByStructure
 -}
+  putStrLn "======================================================================================\n\n"
+{-
   let appendoProgram    = createProgram nameToDef (fresh ["x", "y", "xy"] $ Invoke "appendo" [V "x", V "y", V "xy"])
       maxLengthoProgram = createProgram nameToDef (fresh ["x"] $ Invoke "maxLengtho" [V "x"])
   print appendoProgram
   print $ translate appendoProgram [("xy", In)] -- [("x", In), ("y", In)]
-
+-}
+  let reversoProgram = createProgram nameToDef (fresh ["x", "y"] $ Invoke "reverso" [V "x", V "y"])
+  print reversoProgram
+  print $ translate reversoProgram [("x", In)]
+{-
+  let plainEvaloProgram = plainQuery'
+  print plainEvaloProgram
+  let (goal, stack) = translate plainEvaloProgram [("res", In)]
+  print goal
+  putStrLn ""
+  mapM_ print $ M.toList . fmap S.toList $ stack
+-}
 -----------------------------------------------------------------------------------------------------
 
 splitByStructure :: [[Name]]
