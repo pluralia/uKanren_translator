@@ -79,5 +79,5 @@
 :: revacco xs acc sx = conde
   (xs === [] /\ sx === acc)
   ([h t:
-     xs === h % t /\ {revacco t h % acc sx}])
+     xs === h % t /\ {revacco t (h % acc) sx}])
 

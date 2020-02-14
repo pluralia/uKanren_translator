@@ -74,17 +74,24 @@ main = do
   print appendoProgram
   print $ translate appendoProgram [("xy", In)] -- [("x", In), ("y", In)]
 -}
+{-
   let reversoProgram = createProgram nameToDef (fresh ["x", "y"] $ Invoke "reverso" [V "x", V "y"])
   print reversoProgram
   print $ translate reversoProgram [("x", In)]
+-}
 {-
   let plainEvaloProgram = plainQuery'
   print plainEvaloProgram
   let (goal, stack) = translate plainEvaloProgram [("res", In)]
   print goal
+-}  
+  let reversoProgram = createProgram nameToDef (fresh ["xs", "acc", "sx"] $ Invoke "revacco" [V "xs", V "acc", V "sx"])
+  print reversoProgram
+  let (goal, stack) = translate reversoProgram [("xs", In)]
+  print goal
   putStrLn ""
   mapM_ print $ M.toList . fmap S.toList $ stack
--}
+
 -----------------------------------------------------------------------------------------------------
 
 splitByStructure :: [[Name]]
