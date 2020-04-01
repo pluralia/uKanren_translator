@@ -13,7 +13,12 @@ import           Test.Hspec
 import           Annotation           (translate, PreAnn(..))
 import           Parser               (defsAsts)
 
-import Program.Prop
+import           Program.Prop
+
+-----------------------------------------------------------------------------------------------------
+
+instance Show Program where
+  show (Program defs goal) = unlines ["Program:", show goal, show defs]
 
 -----------------------------------------------------------------------------------------------------
 
@@ -22,15 +27,18 @@ defsByNames nameToDef =
   fmap (\name -> fromMaybe (error $ "no func: " ++ name) $ M.lookup name nameToDef)
 
 
-createProgram :: M.Map Name Def -> G X -> Program
-createProgram nameToDef goal = Program (defsByGoal [] goal) goal
+createProgram :: M.Map Name Def -> Name -> [Name] -> Program
+createProgram nameToDef name args =
+  let goal = makeFresh name args in Program (defsByGoal [] goal) goal
   where
+    makeFresh :: Name -> [Name] -> G X
+    makeFresh name args = fresh args $ Invoke name (V <$> args)
+
     defsByGoal :: [Def] -> G X -> [Def]
     defsByGoal knownDefs goal =
       let defs       = nub . defsByNames nameToDef . namesOfInvokes $ goal
           newDefs    = filter (`notElem` knownDefs) defs
        in defs `union` concatMap (\(Def _ _ goal) -> defsByGoal defs goal) newDefs
-
     
     namesOfInvokes :: G X -> [Name]
     namesOfInvokes (_ :=: _)       = []
@@ -39,8 +47,6 @@ createProgram nameToDef goal = Program (defsByGoal [] goal) goal
     namesOfInvokes (Fresh _ g)     = namesOfInvokes g
     namesOfInvokes (Invoke name _) = [name]
     namesOfInvokes (Let _ _)       = error "LET"
-
------------------------------------------------------------------------------------------------------
 
 initDefsByNames :: IO (M.Map Name Def)
 initDefsByNames = do
@@ -55,8 +61,7 @@ initDefsByNames = do
                     inFileNames
   return . M.fromList . fmap (\def@(Def name _ _) -> (name, def)) . concat $ listListDefs
 
-instance Show Program where
-  show (Program defs goal) = unlines ["Program:", show goal, show defs]
+-----------------------------------------------------------------------------------------------------
 
 main :: IO ()
 main = do
@@ -67,13 +72,16 @@ main = do
     (print . defsByNames nameToDef)
     splitByStructure
 -}
-  putStrLn "======================================================================================\n\n"
-{-
-  let appendoProgram    = createProgram nameToDef (fresh ["x", "y", "xy"] $ Invoke "appendo" [V "x", V "y", V "xy"])
-      maxLengthoProgram = createProgram nameToDef (fresh ["x"] $ Invoke "maxLengtho" [V "x"])
+  putStrLn "=====================================================================================\n\n"
+
+  let appendoProgram    = createProgram nameToDef "appendo" ["x", "y", "xy"]
   print appendoProgram
-  print $ translate appendoProgram [("xy", In)] -- [("x", In), ("y", In)]
--}
+  print $ translate appendoProgram [("x", In), ("y", In)]
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ translate appendoProgram [("xy", In)]
+
+  putStrLn "=====================================================================================\n\n"
+
 {-
   let reversoProgram = createProgram nameToDef (fresh ["x", "y"] $ Invoke "reverso" [V "x", V "y"])
   print reversoProgram
@@ -84,14 +92,15 @@ main = do
   print plainEvaloProgram
   let (goal, stack) = translate plainEvaloProgram [("res", In)]
   print goal
--}  
+-}
+{- 
   let reversoProgram = createProgram nameToDef (fresh ["xs", "acc", "sx"] $ Invoke "revacco" [V "xs", V "acc", V "sx"])
   print reversoProgram
   let (goal, stack) = translate reversoProgram [("xs", In)]
   print goal
   putStrLn ""
   mapM_ print $ M.toList . fmap S.toList $ stack
-
+-}
 -----------------------------------------------------------------------------------------------------
 
 splitByStructure :: [[Name]]

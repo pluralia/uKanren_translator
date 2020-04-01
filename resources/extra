@@ -1,0 +1,6 @@
+:: reversoRev x y = conde
+  (x === [] /\ y === [])
+  ([h t rt :
+     {appendo rt (h % []) y} /\ {reversoRev t rt} /\ x === h % t])
+
+
