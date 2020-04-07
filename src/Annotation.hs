@@ -106,10 +106,21 @@ initTranslation gamma goal xPreAnn =
          (unfreshedGoal, gamma', _) = E.preEval gamma goal
          (_, iota'@(_, xToTs), _)   = gamma'
          normalizedGoal             = LC.normalize unfreshedGoal
+         normUnifGoal               = normalizeUnif normalizedGoal
          xAnn                       = second preAnnToAnn <$> xPreAnn
-         preAnnotatedGoal           = fmap (initAnnotation xToTs xAnn) <$> normalizedGoal
+         preAnnotatedGoal           = fmap (initAnnotation xToTs xAnn) <$> normUnifGoal
       in {- trace ("Iota after init: " ++ E.showInt iota') -} (gamma', preAnnotatedGoal)
 
+
+normalizeUnif :: [[G a]] -> [[G a]]
+normalizeUnif = fmap (concatMap go)
+  where
+    go :: G a -> [G a]
+    go (C name1 term1 :=: C name2 term2)
+      | name1 == name2 &&
+        length term1 == length term2 = go `concatMap` zipWith (:=:) term1 term2
+      | otherwise                    = error "normUnification: failed ctor unification"
+    go goal                          = [goal]
 
 initAnnotation :: (X -> Ts) -> [(X, Ann)] -> G S -> G (S, Ann)
 initAnnotation xToTs xAnn = fmap (\s -> (s, fromMaybe Nothing $ lookup s sAnn))
@@ -184,8 +195,9 @@ annotateInternal isRecCall mainName gamma@(defByName, (_, xToTs), _) = annotateG
               (unfreshedGoal, gamma') = LC.oneStepUnfold (fst <$> invoke) gamma
               (_, (_, xToTs), _)      = gamma'
               normalizedGoal          = LC.normalize unfreshedGoal
+              normUnifGoal            = normalizeUnif normalizedGoal
               xAnn                    = zip args (resetInAnn <$> terms)
-              preAnnotatedGoal        = fmap (initAnnotation xToTs xAnn) <$> normalizedGoal
+              preAnnotatedGoal        = fmap (initAnnotation xToTs xAnn) <$> normUnifGoal
               interestS               = (getVarsT . xToTs) `concatMap` args
               stackWithTheGoal        = addToStack stack name terms preAnnotatedGoal
            in trace (show $ (interestS, (preAnnotatedGoal, stackWithTheGoal))) (interestS, gamma', (preAnnotatedGoal, stackWithTheGoal))

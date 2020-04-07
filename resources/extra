@@ -4,3 +4,7 @@
      {appendo rt (h % []) y} /\ {reversoRev t rt} /\ x === h % t])
 
 
+:: appendoCtorsUnif x y xy = conde
+  (x === [] /\ xy === y)
+  ([h t ty:
+     {appendoCtorsUnif t y ty} /\ x % xy % [] === (h % t) % (h % ty) % []])

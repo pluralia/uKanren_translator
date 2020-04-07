@@ -83,6 +83,16 @@ main = do
   putStrLn "=====================================================================================\n\n"
 -}
 
+  putStrLn "=====================================================================================\n\n"
+  let appendoCtorsUnifProgram = createProgram nameToDef "appendoCtorsUnif" ["x", "y", "xy"]
+  print appendoCtorsUnifProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ translate appendoCtorsUnifProgram [("x", In), ("y", In)]
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+--  print $ translate appendoCtorsUnifProgram [("xy", In)]
+  putStrLn "=====================================================================================\n\n"
+
+
 {-
   putStrLn "=====================================================================================\n\n"
   let reversoProgram = createProgram nameToDef "reverso" ["x", "y"]
@@ -95,6 +105,7 @@ main = do
   putStrLn "=====================================================================================\n\n"
 -}
 
+{-
   putStrLn "=====================================================================================\n\n"
   let reversoRevProgram = createProgram nameToDef "reversoRev" ["x", "y"]
   print reversoRevProgram
@@ -103,20 +114,46 @@ main = do
   putStrLn "-------------------------------------------------------------------------------------\n\n"
   print $ translate reversoRevProgram [("y", In)]
   putStrLn "=====================================================================================\n\n"
+-}
 
+{-
+  putStrLn "=====================================================================================\n\n"
+  let revaccoProgram = createProgram nameToDef "revacco" ["xs", "acc", "sx"]
+  print revaccoProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ translate revaccoProgram [("xs", In), ("acc", In)]
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ translate revaccoProgram [("sx", In)]
+  putStrLn "=====================================================================================\n\n"
+-}
+
+{-
+  putStrLn "=====================================================================================\n\n"
+  let lengthoProgram = createProgram nameToDef "lengtho" ["x", "l"]
+  print lengthoProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ translate lengthoProgram [("x", In)]
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ translate lengthoProgram [("l", In)]
+  putStrLn "=====================================================================================\n\n"
+-}
+
+{-
+  putStrLn "=====================================================================================\n\n"
+  let maxLengthoProgram = createProgram nameToDef "maxLengtho" ["x", "m", "l"]
+  print maxLengthoProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ translate maxLengthoProgram [("x", In), ("m", In)]
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+--  print $ translate maxLengthoProgram [("l", In)]
+  putStrLn "=====================================================================================\n\n"
+-}
 
 {-
   let plainEvaloProgram = plainQuery'
   print plainEvaloProgram
   let (goal, stack) = translate plainEvaloProgram [("res", In)]
   print goal
-
-  let reversoProgram = createProgram nameToDef (fresh ["xs", "acc", "sx"] $ Invoke "revacco" [V "xs", V "acc", V "sx"])
-  print reversoProgram
-  let (goal, stack) = translate reversoProgram [("xs", In)]
-  print goal
-  putStrLn ""
-  mapM_ print $ M.toList . fmap S.toList $ stack
 -}
 -----------------------------------------------------------------------------------------------------
 
