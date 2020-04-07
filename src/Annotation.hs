@@ -25,7 +25,9 @@ import           Debug.Trace           (trace)
 ----------------------------------------------------------------------------------------------------
 
 translate :: Program -> [(X, PreAnn)] -> ([[G (S, Ann)]], Stack)
-translate (Program scope goal) = second filterStack . uncurry annotate . initTranslation gamma goal
+translate (Program scope goal) = 
+  second filterStack . 
+  uncurry annotate . initTranslation gamma goal
   where
     gamma@(_, iota, _) = E.updateDefsInGamma E.env0 scope
 
@@ -49,17 +51,17 @@ type Stack = M.Map Name (S.Set ArgsOrder)
 
 
 addToStack :: Stack -> Name -> [Term (S, Ann)] -> [[G (S, Ann)]] -> Stack
-addToStack stack name terms goal =
+addToStack stack name terms goal = trace ("addToStack: " ++ name ++ " | " ++ show terms ++ " | " ++ show (argsOrder terms goal)) $
   let updArgsOrderSet = S.insert (argsOrder terms goal) . fromMaybe S.empty $ M.lookup name stack
    in M.insert name updArgsOrderSet stack
 
 
 filterStack :: Stack -> Stack
-filterStack = fmap (errorIfUndefStack . S.filter argsOrderPred)
+filterStack stack = fmap (errorIfUndefStack . S.filter argsOrderPred) stack
   where
     errorIfUndefStack :: S.Set ArgsOrder -> S.Set ArgsOrder
     errorIfUndefStack set
-      | S.null set = error "UNDEFINED IN STACK"
+      | S.null set = error $ "UNDEFINED IN STACK\n" ++ show stack
       | otherwise  = set
 
 ----------------------------------------------------------------------------------------------------
@@ -138,17 +140,16 @@ annotateInternal isRecCall mainName gamma@(defByName, (_, xToTs), _) = annotateG
 
     annotateDisj :: ([G (S, Ann)], Stack) -> ([G (S, Ann)], Stack)
     annotateDisj (conjList, stack) =
-      if null res then (if isRecCall then head resDisjStackList else error "FAIL DISJ") else head res
+      if null res then (if isRecCall then head resDisjStackList else trace ("FAIL DISJ") $ head resDisjStackList) else head res
       where
         resDisjStackList = fmap (fixPoint annotateDisjInternal . (, stack)) . disjPerm $ conjList
-        
         res              = dropWhile (disjStackPred mainName) resDisjStackList
         
         annotateDisjInternal :: ([G (S, Ann)], Stack) -> ([G (S, Ann)], Stack)
         annotateDisjInternal (conjList, stack) = 
           first meetGoals .
           foldl'
-            (\(acc, st) x -> ((acc ++) . (:[])) `first` ({- trace ("CONJ " ++ show (meetGoalForOne acc x)) -} annotateConj) (meetGoalForOne acc x, st))
+            (\(acc, st) x -> trace (mainName ++ ": CONJ " ++ (show x)) $ ((acc ++) . (:[])) `first` annotateConj (meetGoalForOne acc x, st))
             ([], stack) $ conjList
           
     annotateConj :: (G (S, Ann), Stack) -> (G (S, Ann), Stack)
@@ -161,13 +162,13 @@ annotateInternal isRecCall mainName gamma@(defByName, (_, xToTs), _) = annotateG
         meetTerm _                _       = let (t2' :=: t1') = meetTerm t2 t1 in t1 :=: t2
     
     annotateConj invokeStack@(invoke@(Invoke name terms), stack)
-      | isSkippable  = {- trace (unlines ["skippable"])  -} invokeStack
-      | checkInStack = {- trace (unlines ["inStack"])    -} (Invoke name selfUpdTerms, stack)
-      | otherwise    = {- trace (unlines ["notInStack"]) -} annotateUnfolded $ unfoldName
+      | isSkippable  = trace (unlines ["skippable"])  invokeStack
+      | checkInStack = trace (unlines ["inStack"])    (Invoke name selfUpdTerms, stack)
+      | otherwise    = trace (unlines ["notInStack"]) annotateUnfolded $ unfoldName
       where
         -- if all terms are undefined or annotated -- skip it
         isSkippable :: Bool
-        isSkippable = {- trace ("INVOKE: " ++ show invokeStack) $ -} isNothing (maxAnnList terms) || isJust (maxAnn $ C undefined terms)
+        isSkippable = trace ("INVOKE: " ++ show invokeStack) $ isNothing (maxAnnList terms) || isJust (maxAnn $ C undefined terms)
 
         -- in stack
         checkInStack :: Bool
@@ -178,7 +179,7 @@ annotateInternal isRecCall mainName gamma@(defByName, (_, xToTs), _) = annotateG
 
         -- not in stack
         unfoldName :: ([S], E.Gamma, ([[G (S, Ann)]], Stack))
-        unfoldName =
+        unfoldName = trace (mainName ++ ": unfoldName") $ 
           let (Def _ args _)          = defByName name
               (unfreshedGoal, gamma') = LC.oneStepUnfold (fst <$> invoke) gamma
               (_, (_, xToTs), _)      = gamma'
@@ -187,14 +188,17 @@ annotateInternal isRecCall mainName gamma@(defByName, (_, xToTs), _) = annotateG
               preAnnotatedGoal        = fmap (initAnnotation xToTs xAnn) <$> normalizedGoal
               interestS               = (getVarsT . xToTs) `concatMap` args
               stackWithTheGoal        = addToStack stack name terms preAnnotatedGoal
-           in {- trace (show $ (interestS, (preAnnotatedGoal, stackWithTheGoal))) -} (interestS, gamma', (preAnnotatedGoal, stackWithTheGoal))
+           in trace (show $ (interestS, (preAnnotatedGoal, stackWithTheGoal))) (interestS, gamma', (preAnnotatedGoal, stackWithTheGoal))
 
         annotateUnfolded :: ([S], E.Gamma, ([[G (S, Ann)]], Stack)) -> (G (S, Ann), Stack)
-        annotateUnfolded (interestS, gamma, goalStack) =
-          let (annotatedGoal, updStack) = annotateInternal True name gamma goalStack
+        annotateUnfolded (interestS, gamma, goalStack) = trace (mainName ++ ": annotatedUnfolded") $
+          let 
+              (annotatedGoal, updStack) = annotateInternal True name gamma goalStack
               anns                      = annsByGoal interestS annotatedGoal
-              updTerms                  = updTermsByAnn anns terms
-              updUpdStack               = addToStack updStack name updTerms annotatedGoal
+              stackTerms                = updTermsByAnn anns terms
+              isInvDef                  = not $ disjStackPred name (concat annotatedGoal, updStack) 
+              updUpdStack               = addToStack updStack name stackTerms annotatedGoal
+              updTerms                  = if isInvDef then selfUpdTerms else terms
            in (Invoke name updTerms, updUpdStack)
 
     annotateConj _                  = error "forbidden goal for conj"
