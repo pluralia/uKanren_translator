@@ -100,9 +100,9 @@ main = do
   putStrLn "-------------------------------------------------------------------------------------\n\n"
   print reversoProgram
   putStrLn "-------------------------------------------------------------------------------------\n\n"
---  print $ translate reversoProgram [("x", In)]
+  print $ translate reversoProgram [("x", In)]
   putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ translate reversoProgram [("y", In)]
+--  print $ translate reversoProgram [("y", In)]
   putStrLn "=====================================================================================\n\n"
 
 

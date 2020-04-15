@@ -25,20 +25,31 @@ import           Debug.Trace           (trace)
 ----------------------------------------------------------------------------------------------------
 
 translate :: Program -> [(X, PreAnn)] -> ([[G (S, Ann)]], Stack)
-translate (Program scope goal) = trace ("Program: " ++ (show scope) ++ "\n\nSPETONAME:" ++ (show specToName) ++ "\n\nINVOKESSPEC:"  ++ (show invokesSpec) ++ "\n\nEXTRASCOPE" ++ (show extraScope) ++ "\n\n") $
+translate program = trace ("Program: " ++ (show scope) ++ "\n\nSCOPE:" ++ (show scope) ++ "\n\n") $
   second filterStack . 
   uncurry annotate . initTranslation gamma goal
   where
-    gamma       = E.updateDefsInGamma E.env0 scope
-    fNameToNum  = M.fromList $ (\(Def name _ _) -> (name, 0)) <$> scope
-    specToName  = M.fromList $
-      (\(Def name args _) -> (makeStringSpec name (invokeSpec (V <$> args)), name)) <$> scope
-    invokesSpec = S.toList . S.unions $ extractInvokes <$> (goal : ((\(Def _ _ x) -> x) <$> scope))
-    extraScope  = unfoldInvokes (fNameToNum, specToName) invokesSpec
+    (Program scope goal) = normalizeInvokes program
+    gamma                = E.updateDefsInGamma E.env0 scope
+
+----------------------------------------------------------------------------------------------------
+
+normalizeInvokes :: Program -> Program
+normalizeInvokes (Program scope goal) =
+  let replaceInvokePA = replaceInvoke (M.fromList $ (\(Def name _ _) -> (name, 0)) <$> scope)
+      (specToName, (updGoal, goalDefs)) = replaceInvokePA M.empty goal
+      (_, (replacedScope, scopeDefs))   =
+        foldr
+          (\(Def n as goal) (sTN, (acc, defs)) ->
+              second (bimap ((: acc) . (Def n as)) (++ defs)) $ replaceInvokePA sTN goal)
+          (specToName, ([], []))
+          scope
+      updScope = replacedScope ++ goalDefs ++ scopeDefs
+   in Program updScope updGoal
 
 
 invokeSpec :: (Ord a, Show a) => [Term a] -> [Term X]
-invokeSpec terms = (\(C _ updTerms, _) -> updTerms) $ go (0, M.empty) (C "" terms)
+invokeSpec terms = (\(C _ updTerms, _) -> updTerms) $ go (1, M.empty) (C "" terms)
   where
     go :: (Ord a, Show a) => (Int, M.Map a Int) -> Term a -> (Term X, (Int, M.Map a Int))
     go mapInfo@(n, varToName) (V var) =
@@ -50,39 +61,49 @@ invokeSpec terms = (\(C _ updTerms, _) -> updTerms) $ go (0, M.empty) (C "" term
        in C name `first` res
 
 
-extractInvokes :: (Ord a, Show a) => G a -> S.Set (Name, [Term X])
-extractInvokes (_ :=: _)           = S.empty
-extractInvokes (g1 :/\: g2)        = extractInvokes g1 `S.union` extractInvokes g2
-extractInvokes (g1 :\/: g2)        = extractInvokes g1 `S.union` extractInvokes g2
-extractInvokes (Fresh _ g)         = extractInvokes g
-extractInvokes (Invoke name terms) = S.singleton $ (name, invokeSpec terms)
-extractInvokes (Let _ _)           = error "extractInvokes: Let"
+replaceInvoke :: M.Map Name Int -> M.Map Name Name -> G X -> (M.Map Name Name, (G X, [Def]))
+replaceInvoke fNameToNum = go
+  where
+    go :: M.Map Name Name -> G X -> (M.Map Name Name, (G X, [Def]))
+    go specToName unif@(_ :=: _)          = (specToName, (unif, []))
+    go specToName (goal1 :/\: goal2)      =
+      let (specToName1, (updG1, defs1)) = go specToName  goal1
+          (specToName2, (updG2, defs2)) = go specToName1 goal2
+       in (specToName2, (updG1 :/\: updG2, defs1 ++ defs2))
+    go specToName (goal1 :\/: goal2)      =
+      let (specToName1, (updG1, defs1)) = go specToName  goal1
+          (specToName2, (updG2, defs2)) = go specToName1 goal2
+       in (specToName2, (updG1 :\/: updG2, defs1 ++ defs2))
+    go specToName (Fresh name goal) = second (first (Fresh name)) $ go specToName goal
+    go specToName inv@(Invoke name terms) 
+      | all isVar terms = (specToName, (inv, []))
+      | otherwise       =
+      let (def@(Def newName _ _), (_, updSpecToName)) =
+            unfoldInvoke (fNameToNum, specToName) (name, invokeSpec terms)
+       in (updSpecToName, (Invoke newName (V <$> getVarsT `concatMap` terms), [def]))
+    go _          (Let _ _)               = error "extractInvokes: Let"
 
 
-makeStringSpec :: Name -> [Term X] -> Name
-makeStringSpec name terms = "{" ++ name ++ " " ++ (intercalate " " (show <$> terms)) ++ "}"
+isVar :: Term a -> Bool
+isVar (V _) = True
+isVar _     = False
 
 
 -- (source func name TO number of additional funcs, func spec TO name of additional func) ->
 -- (func name, terms with replaced var names)
-unfoldInvokes :: (M.Map Name Int, M.Map Name Name) ->
-                 [(Name, [Term X])] ->
-                 ([Def], (M.Map Name Int, M.Map Name Name))
-unfoldInvokes invInfo = first catMaybes . foldl' (\(acc, mI) x -> (: acc) `first` go mI x) ([], invInfo)
-  where
-    go :: (M.Map Name Int, M.Map Name Name) ->
-          (Name, [Term X]) ->
-          (Maybe Def, (M.Map Name Int, M.Map Name Name))
-    go invInfo@(fNameToNum, specToName) (name, terms) =
-      let spec          = makeStringSpec name terms
-          num           = maybe (error "unfoldInvokes: undef invoke") id $ M.lookup name fNameToNum
-          newName       = name ++ (show num)
-          argsNames     = getVarsT `concatMap` terms
-          def           = Def newName argsNames (Invoke name terms)
-          updFNameToNum = M.insert name (succ num) fNameToNum
-          updSpecToName = M.insert spec newName specToName
-          retIfNothing  = (Just def, (updFNameToNum, updSpecToName)) 
-       in maybe retIfNothing (const (Nothing, invInfo)) $ M.lookup spec specToName
+unfoldInvoke :: (M.Map Name Int, M.Map Name Name) ->
+                (Name, [Term X]) ->
+                (Def, (M.Map Name Int, M.Map Name Name))
+unfoldInvoke invInfo@(fNameToNum, specToName) (name, terms) =
+  let spec          = "{" ++ name ++ " " ++ (intercalate " " (show <$> terms)) ++ "}"
+      num           = maybe (error "unfoldInvokes: undef invoke") id $ M.lookup name fNameToNum
+      newName       = name ++ (show num)
+      argsNames     = getVarsT `concatMap` terms
+      def           = Def newName argsNames (Invoke name terms)
+      updFNameToNum = M.insert name (succ num) fNameToNum
+      updSpecToName = M.insert spec newName specToName
+      retIfNothing  = (def, (updFNameToNum, updSpecToName)) 
+   in maybe retIfNothing (error "unfoldInvoke: don't need to unfold") $ M.lookup spec specToName
 
 ----------------------------------------------------------------------------------------------------
 
