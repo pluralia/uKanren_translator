@@ -41,8 +41,8 @@ createProgram nameToDef name args =
     
     namesOfInvokes :: G X -> [Name]
     namesOfInvokes (_ :=: _)       = []
-    namesOfInvokes (g1 :/\: g2)    = namesOfInvokes g1  ++ namesOfInvokes g2
-    namesOfInvokes (g1 :\/: g2)    = namesOfInvokes g1  ++ namesOfInvokes g2
+    namesOfInvokes (g1 :/\: g2)    = namesOfInvokes g1 ++ namesOfInvokes g2
+    namesOfInvokes (g1 :\/: g2)    = namesOfInvokes g1 ++ namesOfInvokes g2
     namesOfInvokes (Fresh _ g)     = namesOfInvokes g
     namesOfInvokes (Invoke name _) = [name]
     namesOfInvokes (Let _ _)       = error "LET"
@@ -83,6 +83,7 @@ main = do
   putStrLn "=====================================================================================\n\n"
 -}
 
+{-
   putStrLn "=====================================================================================\n\n"
   let appendoCtorsUnifProgram = createProgram nameToDef "appendoCtorsUnif" ["x", "y", "xy"]
   print appendoCtorsUnifProgram
@@ -91,19 +92,19 @@ main = do
   putStrLn "-------------------------------------------------------------------------------------\n\n"
 --  print $ translate appendoCtorsUnifProgram [("xy", In)]
   putStrLn "=====================================================================================\n\n"
+-}
 
 
-{-
   putStrLn "=====================================================================================\n\n"
   let reversoProgram = createProgram nameToDef "reverso" ["x", "y"]
   putStrLn "-------------------------------------------------------------------------------------\n\n"
   print reversoProgram
   putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ translate reversoProgram [("x", In)]
+--  print $ translate reversoProgram [("x", In)]
   putStrLn "-------------------------------------------------------------------------------------\n\n"
   print $ translate reversoProgram [("y", In)]
   putStrLn "=====================================================================================\n\n"
--}
+
 
 {-
   putStrLn "=====================================================================================\n\n"
