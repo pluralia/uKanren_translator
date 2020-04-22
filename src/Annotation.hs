@@ -285,7 +285,7 @@ annotateInternal isRecCall mainName gamma@(defByName, (_, xToTs), _) = annotateG
     annotateConj invokeStack@(invoke@(Invoke name terms), stack)
       | isSkippable  = trace (unlines ["skippable"])  invokeStack
       | checkInStack = trace (unlines ["inStack"])    (Invoke name selfUpdTerms, stack)
-      | otherwise    = trace (unlines ["notInStack"]) annotateUnfolded $ unfoldName
+      | otherwise    = trace (unlines ["notInStack"]) $ annotateInvoke initInvAnnotation
       where
         -- if all terms are undefined or annotated -- skip it
         isSkippable :: Bool
@@ -296,34 +296,27 @@ annotateInternal isRecCall mainName gamma@(defByName, (_, xToTs), _) = annotateG
         checkInStack = maybe False (S.member (argsOrder terms undefined)) $ M.lookup name stack
 
         selfUpdTerms :: [Term (S, Ann)]
-        selfUpdTerms = updTermsByAnn (iterate id . fmap succ . maxAnnList $ terms) terms
+        selfUpdTerms = replaceUndef (fmap succ . maxAnnList $ terms) <$> terms
 
         -- not in stack
-        unfoldName :: ([S], E.Gamma, ([[G (S, Ann)]], Stack))
-        unfoldName = trace (mainName ++ ": unfoldName") $ 
-          let (Def _ args _)          = defByName name
-              (unfreshedGoal, gamma') = LC.oneStepUnfold (fst <$> invoke) gamma
-              (_, (_, xToTs), _)      = gamma'
-              normalizedGoal          = LC.normalize unfreshedGoal
-              normUnifGoal            = normalizeUnif normalizedGoal
-              xAnn                    = zip args (resetInAnn <$> terms)
-              preAnnotatedGoal        = fmap (initAnnotation xToTs xAnn) <$> normUnifGoal
-              interestS               = (getVarsT . xToTs) `concatMap` args
-              stackWithTheGoal        = addToStack stack name terms preAnnotatedGoal
-           in
-          --    trace (show $ (interestS, (preAnnotatedGoal, stackWithTheGoal))) $
-              trace ("===============================" ++ name ++ (show normUnifGoal)) $
-              (interestS, gamma', (preAnnotatedGoal, stackWithTheGoal))
+        initInvAnnotation :: (E.Gamma, ([[G (S, Ann)]], Stack))
+        initInvAnnotation = trace (mainName ++ ": unfoldName") $ 
+          let
+              (unfreshedGoal, updGamma) = LC.oneStepUnfold (fst <$> invoke) gamma
+              normalizedGoal            = LC.normalize unfreshedGoal
+              normUnifGoal              = normalizeUnif normalizedGoal
+              preAnnotatedGoal          = updGoalAnnsByTerm terms normUnifGoal
+              stackWithTheGoal          = addToStack stack name terms preAnnotatedGoal
+           in (updGamma, (preAnnotatedGoal, stackWithTheGoal))
 
-        annotateUnfolded :: ([S], E.Gamma, ([[G (S, Ann)]], Stack)) -> (G (S, Ann), Stack)
-        annotateUnfolded (interestS, gamma, goalStack) = trace (mainName ++ ": annotatedUnfolded") $
+        annotateInvoke :: (E.Gamma, ([[G (S, Ann)]], Stack)) -> (G (S, Ann), Stack)
+        annotateInvoke (updGamma, goalStack) = trace (mainName ++ ": annotatedUnfolded") $
           let 
-              (annotatedGoal, updStack) = annotateInternal True name gamma goalStack
-              anns                      = annsByGoal interestS annotatedGoal
-              stackTerms                = updTermsByAnn anns terms
+              (annotatedGoal, updStack) = annotateInternal True name updGamma goalStack
               isInvDef                  = not $ disjStackPred name (concat annotatedGoal, updStack) 
-              updUpdStack               = addToStack updStack name stackTerms annotatedGoal
               updTerms                  = if isInvDef then selfUpdTerms else terms
+              stackTerms                = updTermAnnsByGoal annotatedGoal terms
+              updUpdStack               = addToStack updStack name stackTerms annotatedGoal
            in (Invoke name updTerms, updUpdStack)
 
     annotateConj _                  = error "forbidden goal for conj"
@@ -380,13 +373,21 @@ commonVarAnns = fmap (bimap head (foldl' meet Nothing) . unzip)
               . sortBy (\(s1, _) (s2, _) -> compare s1 s2)
               . concatMap getVars
 
+----------------------------------------------------------------------------------------------------
 
-annsByGoal :: [S] -> [[G (S, Ann)]] -> [Ann]
-annsByGoal interestS goal = 
-  let varAnns  = commonVarAnns . concat $ goal
-      sToAnn   = M.fromList . filter ((`elem` interestS) . fst) $ varAnns
-      argsAnns = (\s -> fromMaybe Nothing $ M.lookup s sToAnn) <$> interestS
-   in argsAnns
+updTermAnnsByGoal :: [[G (S, Ann)]] -> [Term (S, Ann)] -> [Term (S, Ann)]
+updTermAnnsByGoal goal terms
+  | any (not . isVar) terms = error "updTermAnnsByGoal: invoke argument is ctor"
+  | otherwise               = (\(V (s, _)) -> maybe (error "updTermAnnByGoal: args was not found") (V . (s,)) $ M.lookup s sToAnn) <$> terms
+  where
+    sToAnn = M.fromList . commonVarAnns . concat $ goal
+
+updGoalAnnsByTerm :: [Term (S, Ann)] -> [[G S]] -> [[G (S, Ann)]]
+updGoalAnnsByTerm terms goal
+  | any (not . isVar) terms = error "updGoalAnnsByTerm: invoke argument is ctor"
+  | otherwise               = fmap (fmap (\s -> (s,) . maybe Nothing id $ M.lookup s sToAnn)) <$> goal
+  where
+    sToAnn = M.fromList . fmap (\(V x) -> x) $ terms
 
 ----------------------------------------------------------------------------------------------------
 
@@ -414,18 +415,10 @@ maxAnn (V (s, ann)) = ann
 maxAnn (C _ terms)  = maybe Nothing (Just . foldr max 0) . sequence . fmap maxAnn $ terms
 
 
-resetInAnn :: Term (S, Ann) -> Ann
-resetInAnn = maybe Nothing (const $ Just 0) . maxAnn
-
-
 replaceUndef :: Ann -> Term (S, Ann) -> Term (S, Ann)
 replaceUndef ann (V (s, Nothing))  = V (s, ann)
 replaceUndef ann v@(V (_, oldAnn)) = v
 replaceUndef ann (C name terms)    = C name . fmap (replaceUndef ann) $ terms
-
-
-updTermsByAnn :: [Ann] -> [Term (S, Ann)] -> [Term (S, Ann)]
-updTermsByAnn anns = fmap (uncurry replaceUndef) . zip anns
 
 
 maxAnnList :: [Term (S, Ann)] -> Ann
