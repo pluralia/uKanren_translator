@@ -29,27 +29,36 @@ translate program = trace ("Program: " ++ (show scope) ++ "\n\nSCOPE:" ++ (show 
   second filterStack . 
   uncurry annotate . initTranslation gamma goal
   where
-    (Program scope goal) = normalizeInvokes program
+    (Program scope goal) = normalizeInvokes $ normalizeInvokes program
     gamma                = E.updateDefsInGamma E.env0 scope
 
 ----------------------------------------------------------------------------------------------------
 
 normalizeInvokes :: Program -> Program
 normalizeInvokes (Program scope goal) =
-  let replaceInvokePA = replaceInvoke (M.fromList $ (\(Def name _ _) -> (name, 0)) <$> scope)
+  let
+      gamma0          = E.updateDefsInGamma E.env0 scope
+      replaceInvokePA = replaceInvoke gamma0 (M.fromList $ (\(Def name _ _) -> (name, 0)) <$> scope)
       (specToName, (updGoal, goalDefs)) = replaceInvokePA M.empty goal
-      (_, (replacedScope, scopeDefs))   =
+      (x, (replacedScope, scopeDefs))   = 
         foldr
           (\(Def n as goal) (sTN, (acc, defs)) ->
               second (bimap ((: acc) . (Def n as)) (++ defs)) $ replaceInvokePA sTN goal)
           (specToName, ([], []))
           scope
-      updScope = replacedScope ++ goalDefs ++ scopeDefs
+      updScope = removeRepeatingDefs $ goalDefs ++ scopeDefs ++ replacedScope
    in Program updScope updGoal
 
 
+removeRepeatingDefs :: [Def] -> [Def]
+removeRepeatingDefs = mapToDefList . defListToMap
+  where
+    defListToMap = M.fromList . fmap (\(Def name args goal) -> ((name, args), goal)) 
+    mapToDefList = fmap (\((name, args), goal) -> Def name args goal) . M.toList
+
+
 invokeSpec :: (Ord a, Show a) => [Term a] -> [Term X]
-invokeSpec terms = (\(C _ updTerms, _) -> updTerms) $ go (1, M.empty) (C "" terms)
+invokeSpec terms = (\(C _ updTerms, _) -> updTerms) $ go (0, M.empty) (C "" terms)
   where
     go :: (Ord a, Show a) => (Int, M.Map a Int) -> Term a -> (Term X, (Int, M.Map a Int))
     go mapInfo@(n, varToName) (V var) =
@@ -57,12 +66,12 @@ invokeSpec terms = (\(C _ updTerms, _) -> updTerms) $ go (1, M.empty) (C "" term
           retIfNothing = (intToVar n, (succ n, M.insert var n varToName))
        in maybe retIfNothing ((, mapInfo) . intToVar) $ M.lookup var varToName
     go mapInfo (C name terms) =
-      let res = foldl' (\(acc, mI) x -> (: acc) `first` go mI x) ([], mapInfo) $ terms
+      let res = foldr (\x (acc, mI) -> (: acc) `first` go mI x) ([], mapInfo) $ terms
        in C name `first` res
 
 
-replaceInvoke :: M.Map Name Int -> M.Map Name Name -> G X -> (M.Map Name Name, (G X, [Def]))
-replaceInvoke fNameToNum = go
+replaceInvoke :: E.Gamma -> M.Map Name Int -> M.Map Name Name -> G X -> (M.Map Name Name, (G X, [Def]))
+replaceInvoke gamma0 fNameToNum = go
   where
     go :: M.Map Name Name -> G X -> (M.Map Name Name, (G X, [Def]))
     go specToName unif@(_ :=: _)          = (specToName, (unif, []))
@@ -79,7 +88,7 @@ replaceInvoke fNameToNum = go
       | all isVar terms = (specToName, (inv, []))
       | otherwise       =
       let (def@(Def newName _ _), (_, updSpecToName)) =
-            unfoldInvoke (fNameToNum, specToName) (name, invokeSpec terms)
+            unfoldInvoke gamma0 (fNameToNum, specToName) (name, invokeSpec terms)
        in (updSpecToName, (Invoke newName (V <$> getVarsT `concatMap` terms), [def]))
     go _          (Let _ _)               = error "extractInvokes: Let"
 
@@ -91,19 +100,46 @@ isVar _     = False
 
 -- (source func name TO number of additional funcs, func spec TO name of additional func) ->
 -- (func name, terms with replaced var names)
-unfoldInvoke :: (M.Map Name Int, M.Map Name Name) ->
+unfoldInvoke :: E.Gamma ->
+                (M.Map Name Int, M.Map Name Name) ->
                 (Name, [Term X]) ->
                 (Def, (M.Map Name Int, M.Map Name Name))
-unfoldInvoke invInfo@(fNameToNum, specToName) (name, terms) =
-  let spec          = "{" ++ name ++ " " ++ (intercalate " " (show <$> terms)) ++ "}"
+unfoldInvoke (defByName, _, _) invInfo@(fNameToNum, specToName) (name, terms) =
+  let
       num           = maybe (error "unfoldInvokes: undef invoke") id $ M.lookup name fNameToNum
       newName       = name ++ (show num)
+
       argsNames     = getVarsT `concatMap` terms
-      def           = Def newName argsNames (Invoke name terms)
+
+      (Def _ sourceArgs sourceGoal) = defByName name
+      unfoldedGoal = renameGX (M.fromList $ zip sourceArgs terms) sourceGoal
+
+      def           = Def newName argsNames unfoldedGoal
+
       updFNameToNum = M.insert name (succ num) fNameToNum
+      spec          = "{" ++ name ++ " " ++ (intercalate " " (show <$> terms)) ++ "}"
       updSpecToName = M.insert spec newName specToName
+
       retIfNothing  = (def, (updFNameToNum, updSpecToName)) 
    in maybe retIfNothing (error "unfoldInvoke: don't need to unfold") $ M.lookup spec specToName
+
+
+renameGX :: M.Map X (Term X) -> G X -> G X
+renameGX oldToNew = go
+  where
+    getUpd :: X -> Term X
+    getUpd x = maybe (V x) id $ M.lookup x oldToNew
+
+    renameTX :: Term X -> Term X
+    renameTX (V x) = getUpd x
+    renameTX (C name terms) = C name (renameTX <$> terms)
+
+    go :: G X -> G X
+    go (term1 :=: term2)  = renameTX term1 :=: renameTX term2
+    go (goal1 :/\: goal2) = go goal1 :/\: go goal2
+    go (goal1 :\/: goal2) = go goal1 :\/: go goal2
+    go (Fresh name goal) = Fresh name $ go goal
+    go (Invoke name terms) = Invoke name $ renameTX <$> terms
 
 ----------------------------------------------------------------------------------------------------
 
@@ -274,7 +310,10 @@ annotateInternal isRecCall mainName gamma@(defByName, (_, xToTs), _) = annotateG
               preAnnotatedGoal        = fmap (initAnnotation xToTs xAnn) <$> normUnifGoal
               interestS               = (getVarsT . xToTs) `concatMap` args
               stackWithTheGoal        = addToStack stack name terms preAnnotatedGoal
-           in trace (show $ (interestS, (preAnnotatedGoal, stackWithTheGoal))) (interestS, gamma', (preAnnotatedGoal, stackWithTheGoal))
+           in
+          --    trace (show $ (interestS, (preAnnotatedGoal, stackWithTheGoal))) $
+              trace ("===============================" ++ name ++ (show normUnifGoal)) $
+              (interestS, gamma', (preAnnotatedGoal, stackWithTheGoal))
 
         annotateUnfolded :: ([S], E.Gamma, ([[G (S, Ann)]], Stack)) -> (G (S, Ann), Stack)
         annotateUnfolded (interestS, gamma, goalStack) = trace (mainName ++ ": annotatedUnfolded") $
