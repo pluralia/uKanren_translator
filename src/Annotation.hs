@@ -109,7 +109,7 @@ unfoldInvoke (defByName, _, _) invInfo@(fNameToNum, specToName) (name, terms) =
       num           = maybe (error "unfoldInvokes: undef invoke") id $ M.lookup name fNameToNum
       newName       = name ++ (show num)
 
-      argsNames     = getVarsT `concatMap` terms
+      argsNames     = S.toList . S.fromList $ getVarsT `concatMap` terms
 
       (Def _ sourceArgs sourceGoal) = defByName name
       unfoldedGoal = renameGX (M.fromList $ zip sourceArgs terms) sourceGoal
