@@ -1,6 +1,7 @@
 {-# LANGUAGE TupleSections #-}
-module Annotator.Internal.InvokeNormalization (
-    normalizeInvokes
+module Annotator.Internal.Normalization (
+    normalizeUnif
+  , normalizeInvokes
   ) where
 
 
@@ -17,6 +18,17 @@ import           Annotator.Types
 
 import           Debug.Trace           (trace)
 
+----------------------------------------------------------------------------------------------------
+
+normalizeUnif :: [[G a]] -> [[G a]]
+normalizeUnif = fmap (concatMap go)
+  where
+    go :: G a -> [G a]
+    go (C name1 term1 :=: C name2 term2)
+      | name1 == name2 &&
+        length term1 == length term2 = go `concatMap` zipWith (:=:) term1 term2
+      | otherwise                    = error "normUnification: failed ctor unification"
+    go goal                          = [goal]
 
 ----------------------------------------------------------------------------------------------------
 
