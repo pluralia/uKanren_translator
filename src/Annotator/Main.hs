@@ -18,6 +18,7 @@ import           Syntax
 
 import           Annotator.Internal.InvokeNormalization
 import           Annotator.Internal.Lib
+import           Annotator.Internal.Stack
 import           Annotator.Types
 
 import           Debug.Trace           (trace)
@@ -56,31 +57,6 @@ makeStackBeauty = concatMap (\(name, aoSet) -> fmap (go name) . S.toList $ aoSet
 
 preAnnToAnn :: PreAnn -> Ann
 preAnnToAnn In = Just 0
-
-----------------------------------------------------------------------------------------------------
-
-addToStack :: Stack -> Name -> [Term (S, Ann)] -> [[G (S, Ann)]] -> Stack
-addToStack stack name terms goal = trace ("addToStack: " ++ name ++ " | " ++ show terms ++ " | " ++ show (argsOrder terms goal)) $
-  let updArgsOrderSet = S.insert (argsOrder terms goal) . fromMaybe S.empty $ M.lookup name stack
-   in M.insert name updArgsOrderSet stack
-
-
-filterStack :: Stack -> Stack
-filterStack stack = fmap (errorIfUndefStack . S.filter argsOrderPred) stack
-  where
-    errorIfUndefStack :: S.Set ArgsOrder -> S.Set ArgsOrder
-    errorIfUndefStack set
-      | S.null set = error $ "UNDEFINED IN STACK\n" ++ show stack
-      | otherwise  = set
-
-----------------------------------------------------------------------------------------------------
-
-
-
-argsOrderPred :: ArgsOrder -> Bool
-argsOrderPred (ArgsOrder anns goal _) =
-  all isJust anns &&
-  (all (isJust . snd) . concatMap (concatMap getVars) $ goal)
 
 ----------------------------------------------------------------------------------------------------
 
@@ -199,35 +175,6 @@ annotateInternal isRecCall mainName gamma@(defByName, (_, xToTs), _) = annotateG
 
 ----------------------------------------------------------------------------------------------------
 
-disjPerm :: [G a] -> [[G a]]
-disjPerm = (\(unifs, invs) -> (unifs ++) <$> permutations invs) . partition isUnif
-  where
-    isUnif :: G a -> Bool
-    isUnif (_ :=: _) = True
-    isUnif _         = False
-
-
-disjStackPred :: Name -> ([G (S, Ann)], Stack) -> Bool
-disjStackPred name (list, stD) = not $ isNoUndef list && isAllInvDef
-  where
-    isNoUndef :: [G (S, Ann)] -> Bool
-    isNoUndef = all isJust . concatMap (fmap snd . getVars)
-
-    isAllInvDef :: Bool
-    isAllInvDef  = all isDefInv . filter isNotRecInvoke $ list
-
-    isNotRecInvoke :: G a -> Bool
-    isNotRecInvoke (Invoke name' _)
-      | name == name' = False
-      | otherwise     = True
-    isNotRecInvoke _               = False
-
-    isDefInv :: G a -> Bool
-    isDefInv (Invoke name _) = maybe False (any argsOrderPred) $ M.lookup name stD
-    isDefInv _               = error "isDefInv is undefined for not invoke goal"
-
-----------------------------------------------------------------------------------------------------
-
 meet :: Ann -> Ann -> Ann
 meet Nothing  x        = x
 meet x        Nothing  = x
@@ -275,23 +222,6 @@ updGoalAnnsByTerm terms goal
 
 ----------------------------------------------------------------------------------------------------
 
-getVars :: (Eq a) => G a -> [a]
-getVars = nub . go
- where
-  go (t1 :=: t2)      = getVarsT t1 ++ getVarsT t2
-  go (g1 :/\: g2)     = go g1 ++ go g2
-  go (g1 :\/: g2)     = go g1 ++ go g2
-  go (Invoke _ terms) = getVarsT `concatMap` terms
-  go (Fresh _ g)      = go g
-  go (Let _ _)        = error "LET"
-
-----------------------------------------------------------------------------------------------------
-
-maxAnn :: Term (S, Ann) -> Ann
-maxAnn (V (s, ann)) = ann
-maxAnn (C _ terms)  = maybe Nothing (Just . foldr max 0) . sequence . fmap maxAnn $ terms
-
-
 replaceUndef :: Ann -> Term (S, Ann) -> Term (S, Ann)
 replaceUndef ann (V (s, Nothing))  = V (s, ann)
 replaceUndef ann v@(V (_, oldAnn)) = v
@@ -304,9 +234,6 @@ maxAnnList terms =
    in if null annList then Nothing else Just . maximum $ annList
 
 ----------------------------------------------------------------------------------------------------
-
-argsOrder :: [Term (S, Ann)] -> [[G (S, Ann)]] -> ArgsOrder
-argsOrder terms goal = ArgsOrder (maxAnn <$> terms) goal (fmap fst . concatMap getVarsT $ terms)
 
 annToMask :: [Ann] -> [[S]]
 annToMask = fmap (fmap fst)
