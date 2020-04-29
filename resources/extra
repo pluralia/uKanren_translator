@@ -8,3 +8,49 @@
   (x === [] /\ xy === y)
   ([h t ty:
      {appendoCtorsUnif t y ty} /\ x % xy % [] === (h % t) % (h % ty) % []])
+
+
+:: appendoGen x y xy = conde
+  (x === [] /\ xy === y)
+  ([h t ty:
+     h === <GEN:> /\ x === h % t /\ xy === h % ty /\ {appendoGen t y ty}])
+
+-----------------------------------------------------------------------------------------------------
+
+:: reversoUnif x y = conde
+  (x === [] /\ y === [])
+  ([h t rt hemp:
+     x === h % t /\ {reversoUnif t rt} /\ hemp === h % [] /\ {appendo rt hemp y}])
+
+-----------------------------------------------------------------------------------------------------
+
+:: revaccoGenIOO xs acc sx = conde
+  (xs === [] /\ sx === <GEN:> /\ acc === <GEN:> /\ sx === acc)
+  ([h t hacc:
+     xs === h % t /\ hacc === h % acc /\ {revaccoGenIOO t hacc sx}])
+
+
+:: revaccoGenOIO xs acc sx = conde
+  (xs === [] /\ sx === acc)
+  ([h t hacc:
+     xs === h % t /\ h === <GEN:> /\ hacc === h % acc /\ {revaccoGenOIO t hacc sx}])
+
+
+:: revaccoGenOOIIIOIOI xs acc sx = conde
+  (xs === [] /\ sx === acc)
+  ([h t hacc:
+     xs === h % t /\ hacc === h % acc /\ {revaccoGenOOIIIOIOI t hacc sx}])
+
+
+:: revaccoGenOII xs acc sx = conde
+  (xs === [] /\ sx === acc)
+  ([h t hacc:
+     xs === h % t /\ h === <GEN:> /\ hacc === h % acc /\ {revaccoGenOII t hacc sx}])
+
+:: revaccoGenIII xs acc sx = conde
+  (xs === [] /\ sx === acc)
+  ([h t hacc:
+     xs === h % t /\ hacc === h % acc /\ sx === <GEN:> /\ {revaccoGenIII t hacc sx}])
+
+-----------------------------------------------------------------------------------------------------
+

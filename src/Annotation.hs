@@ -1,8 +1,10 @@
 {-# LANGUAGE TupleSections     #-}
 {-# LANGUAGE FlexibleInstances #-}
 module Annotation (
-    translate
+    preTranslate
   , PreAnn (..)
+  , AnnDef (..)
+  , Conj (..)
   ) where
 
 
@@ -24,13 +26,40 @@ import           Debug.Trace           (trace)
 
 ----------------------------------------------------------------------------------------------------
 
-translate :: Program -> [(X, PreAnn)] -> ([[G (S, Ann)]], Stack)
-translate program = trace ("Program: " ++ (show scope) ++ "\n\nSCOPE:" ++ (show scope) ++ "\n\n") $
-  second filterStack . 
+--preTranslate :: Program -> [(X, PreAnn)] -> [AnnDef]
+preTranslate program = trace ("Program: " ++ (show scope) ++ "\n\nSCOPE:" ++ (show scope) ++ "\n\n") $
+  makeStackBeauty .
+  filterStack . snd .
   uncurry annotate . initTranslation gamma goal
   where
-    (Program scope goal) = normalizeInvokes $ normalizeInvokes program
+    (Program scope goal) = {- normalizeInvokes $ normalizeInvokes -} program
     gamma                = E.updateDefsInGamma E.env0 scope
+
+----------------------------------------------------------------------------------------------------
+
+data AnnDef = AnnDef Name [(S, Word)] [[Conj]]
+  deriving Show
+
+
+data Conj = U (Term (S, Word)) (Term (S, Word))
+          | I Name [(S, Word)]
+  deriving Show
+
+goalToConj :: G (S, Word) -> Conj
+goalToConj (u1 :=: u2)         = U u1 u2
+goalToConj (Invoke name terms) = I name . fmap (\(V v) -> v) $ terms
+
+
+makeStackBeauty :: Stack -> [AnnDef]
+makeStackBeauty = concatMap (\(name, aoSet) -> fmap (go name) . S.toList $ aoSet) . M.toList
+  where
+    go :: Name -> ArgsOrder -> AnnDef
+    go name (ArgsOrder anns goal vars) =
+      let
+          fromMb  = fromMaybe (error "makeStackBeauty: UNDEF ANNOTATION")
+          args    = zip vars (fromMb <$> anns)
+          resGoal = fmap (goalToConj . fmap (fmap fromMb)) <$> goal
+       in AnnDef name args resGoal
 
 ----------------------------------------------------------------------------------------------------
 
@@ -176,11 +205,11 @@ filterStack stack = fmap (errorIfUndefStack . S.filter argsOrderPred) stack
 
 ----------------------------------------------------------------------------------------------------
 
-data ArgsOrder = ArgsOrder [Ann] [[G (S, Ann)]]
+data ArgsOrder = ArgsOrder [Ann] [[G (S, Ann)]] [S]
 
 
 instance Eq ArgsOrder where
-  (ArgsOrder anns1 _) == (ArgsOrder anns2 _) =
+  (ArgsOrder anns1 _ _) == (ArgsOrder anns2 _ _) =
     (checkArgs anns1 anns2 || checkArgs anns2 anns1) && checkAnns (annToMask anns1) (annToMask anns2)
     where
       checkArgs :: [Ann] -> [Ann] -> Bool
@@ -198,11 +227,11 @@ instance Eq ArgsOrder where
             return $ h ++ t
 
 instance Ord ArgsOrder where
-  (ArgsOrder anns1 _ ) <= (ArgsOrder anns2 _) = annToMask anns1 <= annToMask anns2
+  (ArgsOrder anns1 _ _) <= (ArgsOrder anns2 _ _) = annToMask anns1 <= annToMask anns2
 
 
 argsOrderPred :: ArgsOrder -> Bool
-argsOrderPred (ArgsOrder anns goal) =
+argsOrderPred (ArgsOrder anns goal _) =
   all isJust anns &&
   (all (isJust . snd) . concatMap (concatMap getVars) $ goal)
 
@@ -315,7 +344,7 @@ annotateInternal isRecCall mainName gamma@(defByName, (_, xToTs), _) = annotateG
               (annotatedGoal, updStack) = annotateInternal True name updGamma goalStack
               isInvDef                  = not $ disjStackPred name (concat annotatedGoal, updStack) 
               updTerms                  = if isInvDef then selfUpdTerms else terms
-              stackTerms                = updTermAnnsByGoal annotatedGoal terms
+              stackTerms                = updTermAnnsByGoalForStack annotatedGoal terms
               updUpdStack               = addToStack updStack name stackTerms annotatedGoal
            in (Invoke name updTerms, updUpdStack)
 
@@ -375,12 +404,20 @@ commonVarAnns = fmap (bimap head (foldl' meet Nothing) . unzip)
 
 ----------------------------------------------------------------------------------------------------
 
-updTermAnnsByGoal :: [[G (S, Ann)]] -> [Term (S, Ann)] -> [Term (S, Ann)]
-updTermAnnsByGoal goal terms
+updTermAnnsByGoalForStack :: [[G (S, Ann)]] -> [Term (S, Ann)] -> [Term (S, Ann)]
+updTermAnnsByGoalForStack goal terms
   | any (not . isVar) terms = error "updTermAnnsByGoal: invoke argument is ctor"
-  | otherwise               = (\(V (s, _)) -> maybe (error "updTermAnnByGoal: args was not found") (V . (s,)) $ M.lookup s sToAnn) <$> terms
+  | otherwise               = fmap go $ zip ((\(V (_, ann)) -> ann) <$> terms) updTerms
   where
-    sToAnn = M.fromList . commonVarAnns . concat $ goal
+    sToAnn   = M.fromList . commonVarAnns . concat $ goal
+    updTerms = fmap (\(s, _) ->
+             maybe (error "updTermAnnByGoal: args was not found") (s,) $ M.lookup s sToAnn) <$> terms
+
+    go :: (Ann, Term (S, Ann)) -> Term (S, Ann)
+    go (_, v@(V (_, Nothing))) = v
+    go (Nothing, V (s, Just _)) = V (s, Just 1)
+    go (Just _, V (s, _)) = V (s, Just 0)
+
 
 updGoalAnnsByTerm :: [Term (S, Ann)] -> [[G S]] -> [[G (S, Ann)]]
 updGoalAnnsByTerm terms goal
@@ -429,7 +466,7 @@ maxAnnList terms =
 ----------------------------------------------------------------------------------------------------
 
 argsOrder :: [Term (S, Ann)] -> [[G (S, Ann)]] -> ArgsOrder
-argsOrder terms = ArgsOrder (maxAnn <$> terms)
+argsOrder terms goal = ArgsOrder (maxAnn <$> terms) goal (fmap fst . concatMap getVarsT $ terms)
 
 annToMask :: [Ann] -> [[S]]
 annToMask = fmap (fmap fst)
@@ -440,9 +477,10 @@ annToMask = fmap (fmap fst)
 ----------------------------------------------------------------------------------------------------
 
 instance Show ArgsOrder where
-  show (ArgsOrder anns goal) =
+  show (ArgsOrder anns goal vars) =
        "\n"
     ++ "( " ++ intercalate "   |   " (printAnns anns) ++ " )\n"
+    ++ "( " ++ intercalate "   |   " (show <$> vars) ++ " )\n"
     ++ printGoal goal
     ++ "\n"
     where

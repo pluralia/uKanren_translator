@@ -3,309 +3,138 @@
 {-# LANGUAGE TupleSections #-}
 
 module Translator (
-    translator
-  , strTranslator
+    translate
   ) where
 
 import           AFSyntax
+import           Annotation
+
 import           Syntax
-import           Control.Applicative (liftA2)
+
+import           Data.Either (partitionEithers)
 import           Data.Bifunctor (bimap, first, second)
-import           Data.Biapplicative (biliftA2)
-import           Data.Char (ord)
+import           Data.List (partition, sortOn, groupBy)
 import qualified Data.Map.Strict as M
-import           Data.List (delete, nub)
-import           Data.List.NonEmpty (NonEmpty(..))
+import           Data.Tuple (swap)
+
 import           Debug.Trace
-import           Text.Printf (printf)
+
 
 -----------------------------------------------------------------------------------------------------
 
-myPrint :: [String] -> String
-myPrint []       = ""
-myPrint (x : xs) = x ++ " | " ++ myPrint xs
+type A = Word
+
+showS :: S -> String
+showS s = 's' : show s
+
+termToPat :: Term (S, A) -> Pat
+termToPat (V (s, _))     = Var . showS $ s
+termToPat (C name terms) = Ctor name . fmap termToPat $ terms
 
 -----------------------------------------------------------------------------------------------------
 
-translator :: (Functor f) => f Def -> f F
-translator = fmap go
+translate :: [AnnDef] -> [F]
+translate = fmap translateAnnDef
 
-strTranslator :: Maybe Def -> IO ()
-strTranslator = maybe (putStrLn "Your program is not parsed") (print . go)
 
------------------------------------------------------------------------------------------------------
-
-chooseDirection :: [a] -> ([a], a)
-chooseDirection vars = (init vars, last vars) 
-
-go :: Def -> F
-go def@(Def name vars goal) =
-  F name . fmap (toLine (chooseDirection vars)) . toDNF . prrr $ goal
-  where
-    prrr = trace (show $ toDNF goal)
+translateAnnDef :: AnnDef -> F
+translateAnnDef (AnnDef name args goal) = F name . fmap (disjToLine args) $ goal
 
 -----------------------------------------------------------------------------------------------------
 
--- disjunction of conjunctions of calls and unifications with fresh vars
-toDNF :: G a -> [([Name], [G a])]
-toDNF (g1 :/\: g2)      = liftA2 (biliftA2 (++) (++)) (toDNF g1) (toDNF g2)
-toDNF (g1 :\/: g2)      = toDNF g1 ++ toDNF g2
-toDNF (Fresh varName g) = first (varName :) <$> toDNF g
-toDNF g                 = [([], [g])]
+disjToLine :: [(S, A)] -> [Conj] -> Line
+disjToLine args disj =
+  let
+      (inArgs, outArgs)     = bimap (fmap fst) (fmap fst) $ partition ((== 0) . snd) args
+      (guardsPats, conjs)   = extractPats inArgs disj
+      (guardsP, pats)       = patsToGuardsAndPats guardsPats
+      (guardsA, annAssigns) = partitionEithers . fmap conjToGuardOrAssign $ conjs
+      assigns               = fmap snd . sortOn fst $ annAssigns
+      expr                  = Term . Tuple . fmap showS $ outArgs
+   in Line pats (guardsP ++ guardsA) assigns expr 
 
 -----------------------------------------------------------------------------------------------------
 
-term2pat :: Term X -> Pat
-term2pat (V var)        = Var var
-term2pat (C name terms) = Ctor name (fmap term2pat terms)
-
-pat2name :: Pat -> [Name]
-pat2name (Var varName)        = [varName]
-pat2name (Ctor ctorName pats) = pat2name `concatMap` pats
-
--- REWRITE!! get the first pat for arg but doesn't check another pat - need unification
-patWalk :: [Name] -> Name -> [G X] -> ([Pat], [G X])
-patWalk []           _   goals = ([], goals)
-patWalk (arg : args) res goals = (pat :) `first` patWalk args res goals'
+patsToGuardsAndPats :: [Pat] -> ([Guard], [Pat])
+patsToGuardsAndPats = sequence . fmap go
   where
-    (pat, goals') = patWalk' goals
-    
-    patWalk' :: [G X] -> (Pat, [G X])
-    patWalk' []                  = (Var arg, [])
-    patWalk' (g@(t1 :=: t2) : gs)
-      | t1 == V arg, t2 /= V res = (term2pat t2, gs)
-      | t2 == V arg, t1 /= V res = (term2pat t1, gs)
-    patWalk' (g : gs)            = (g :) `second` patWalk' gs
+    go :: Pat -> ([Guard], Pat)
+    go (Tuple _)        = error "patsToGuardsAndPats: impossible case"
+    go pat              = normalizePat pat
 
+    normalizePat :: Pat -> ([Guard], Pat)
+    normalizePat pat =
+      let (updPat, (_, oldToNew)) = rename pat ((('g' :) . show) <$> [0..], M.empty)
+          newToOld                = M.fromList . fmap (swap . second head) . M.toList $ oldToNew
+          updUpdPat               = replace newToOld updPat
+          guards                  =
+            fmap (Guard . fmap Var) . filter ((> 1) . length) . M.elems $ oldToNew
+       in (guards, updUpdPat) 
 
-extractExpr :: Name -> [Assign] -> Maybe (Expr, [Assign])
-extractExpr _   [] = Nothing
-extractExpr res (assig@(Assign var expr) : assigns)
-  | res == var = Just (expr, assigns)
-  | otherwise  = second (assig :) <$> extractExpr res assigns
+    replace :: M.Map String String -> Pat -> Pat
+    replace newToOld (Var v)          = Var $ maybe v id $ M.lookup v newToOld
+    replace newToOld (Ctor name args) = Ctor name . fmap (replace newToOld) $ args
+    replace _        (Tuple _)        = error "patsToGuardsAndPats: impossible case"
 
-concatGuards :: Guard -> Guard -> Guard
-concatGuards (Guard list1) (Guard list2) = Guard . nub $ list1 ++ list2
-
-concatMbGuards :: Maybe Guard -> Maybe Guard -> Maybe Guard
-concatMbGuards (Just g1) (Just g2) = Just $ concatGuards g1 g2
-concatMbGuards Nothing   mbGuard   = mbGuard
-concatMbGuards mbGuard   _         = mbGuard
+    rename :: Pat -> ([String], M.Map String [String]) -> (Pat, ([String], M.Map String [String]))
+    rename (Var v)          ((n : ns), oldToNew) = (Var n, (ns, M.insertWith (++) v [n] oldToNew))
+    rename (Ctor name args) nsOldToNew           =
+      first (Ctor name) .
+      foldr (\arg (acc, info) -> (: acc) `first` rename arg info) ([], nsOldToNew) $ args
+    rename (Tuple _)        _                    = error "patsToGuardsAndPats: impossible case"
 
 -----------------------------------------------------------------------------------------------------
 
-toLine :: ([Name], Name) -> ([Name], [G X]) -> Line
--- frehshes weren't used!
-toLine (args, res) (freshes, conjs) = line
+extractPats :: [S] -> [Conj] -> ([Pat], [Conj])
+extractPats inVars conjs =  
+  let (conjsForPats, conjsForAll) = partition isForPat conjs
+      (pats, conjsFromPats)       = getPats . toMap $ conjsForPats
+   in (pats, conjsFromPats ++ conjsForAll)
   where
-    line = Line pats' guards assigns' expr
+    isForPat :: Conj -> Bool
+    isForPat (U (V (_, 0)) _) = True
+    isForPat (U _ (V (_, 0))) = True
+    isForPat _                = False
 
-    (pats, restConjs) = patWalk args res conjs
-    knownVars         = pat2name `concatMap` (nub pats)
-    (pats', guards)   = removeDuplicate pats
-    assigns           = toAssign knownVars restConjs
-    (expr, assigns')  = maybe (error "res is undefined") id $ extractExpr res assigns
+    toMap :: [Conj] -> M.Map S [Term (S, A)]
+    toMap []                            = M.empty
+    toMap ((U (V (s, 0)) term) : conjs) = M.insertWith (++) s [term] (toMap conjs)
+    toMap ((U term (V (s, 0))) : conjs) = M.insertWith (++) s [term] (toMap conjs)
+
+    getPats :: M.Map S [Term (S, A)] -> ([Pat], [Conj])
+    getPats patMap = 
+      bimap (fmap termToPat) concat .
+      sequence .
+      fmap (\s -> maybe ([V (s, 0)], []) (onePat s) $ M.lookup s patMap) $ inVars
+
+    onePat :: S -> [Term (S, A)] -> ([Term (S, A)], [Conj])
+    onePat _ []             = error "extractPats: impossible case"
+    onePat _ [term]         = ([term], [])
+    onePat s (term : terms) = ([term], (\t -> U (V (s, 0)) t) <$> terms)
 
 -----------------------------------------------------------------------------------------------------
 
-removeDuplicate :: [Pat] -> ([Pat], [Guard])
-removeDuplicate []                            = ([], [])
-removeDuplicate (pat@(Var varName) : pats)        =
-  let (_, mbGuard, pats') = findNameInPatList varName 1 pats
-      (resPats, guards)   = removeDuplicate pats'
-   in (pat : resPats, maybe guards (: guards) mbGuard)
-removeDuplicate ((Ctor ctorName args) : pats) =
-  let (args', guardInfoCtor)           = handlingCtor args
-      resPat                           = Ctor ctorName args'
-      (substCtorPats, guardInfoCtor')  = pats `updateByGuard` guardInfoCtor
-      guardsCtor                       = (\(_, _, x) -> x) <$> guardInfoCtor'
-      (substCtorPats', guardsPatsCtor) = substCtorPats `updateByName` pat2name resPat
-      (resPats, guardsPats)            = removeDuplicate substCtorPats'
-   in (resPat : resPats, guardsCtor ++ guardsPatsCtor ++ guardsPats)
+getMinAnn :: Term (S, A) -> A
+getMinAnn (V (_, a))  = a
+getMinAnn (C _ [])    = 0
+getMinAnn (C _ terms) = minimum $ getMinAnn <$> terms
 
 
-updateByName :: [Pat] -> [Name] -> ([Pat], [Guard])
-updateByName pats []             = (pats, [])
-updateByName pats (name : names) =
-  let (_, mbGuard, pats')   = findNameInPatList name 1 pats
-      (resPats, guardsPats) = pats' `updateByName` names
-   in (resPats, maybe guardsPats (: guardsPats) mbGuard) 
-
-
-handlingCtor :: [Pat] -> ([Pat], [(Name, Int, Guard)])
-handlingCtor []                                = ([], [])
-handlingCtor (arg@(Var varName) : args)        =
-  let (num, mbGuardArg, args') = findNameInPatList varName 1 args
-      (resArgs, guardInfoList) = handlingCtor args'
-   in (arg : resArgs, maybe guardInfoList (\x -> (varName, num, x) : guardInfoList) mbGuardArg)
-handlingCtor ((Ctor ctorName ctorArgs) : args) =
-  let (ctorArgs', guardInfoCtor) = handlingCtor ctorArgs
-      arg'                       = Ctor ctorName ctorArgs'
-      (args', guardInfoList)     = args `updateByGuard` guardInfoCtor
-   in (arg' : args', guardInfoList)
-
-
-updateByGuard :: [Pat] -> [(Name, Int, Guard)] -> ([Pat], [(Name, Int, Guard)])
-updateByGuard pats []                                   = (pats, [])
-updateByGuard pats ((name, num, guard) : guardInfoList) =
-  let (num', mbGuards, pats')   = findNameInPatList name num pats
-      guardInfo                 = (name, num', maybe guard (\x -> concatGuards x guard) mbGuards)
-      (resPats, guardInfoList') = pats' `updateByGuard` guardInfoList
-   in (resPats, guardInfo : guardInfoList')
-
-
-findNameInPatList :: Name -> Int -> [Pat] -> (Int, Maybe Guard, [Pat])
-findNameInPatList name = findNameInPatList'
+chooseDirection :: [(S, A)] -> ([S], (A, [S]))
+chooseDirection args = bimap (fmap fst) ((maxAnn,) . fmap fst) . partition ((/= maxAnn) . snd) $ args
   where
-    findNameInPatList' :: Int -> [Pat] -> (Int, Maybe Guard, [Pat])
-    findNameInPatList' num []           = (num, Nothing, [])
-    findNameInPatList' num (pat : pats) =
-      let (num', mbGuard, pat')    = findNameInPat name num pat
-          (num'', mbGuards, pats') = findNameInPatList' num' pats
-       in (num'', mbGuard `concatMbGuards` mbGuards, pat' : pats')
+    maxAnn = maximum . fmap snd $ args
 
 
-findNameInPat :: Name -> Int -> Pat -> (Int, Maybe Guard, Pat)
-findNameInPat name = findNameInPat'
-  where
-    findNameInPat' :: Int -> Pat -> (Int, Maybe Guard, Pat)
-    findNameInPat' num pat@(Var varName)
-      | varName == name =
-          let varName' = varName ++ replicate num '\''
-           in (succ num, Just . Guard $ [varName, varName'], Var varName')
-      | otherwise       = (num, Nothing, pat)
-    findNameInPat' num (Ctor ctorName args) =
-      let (num', maybeGuard, args') = findNameInPatList name num args
-       in (num', maybeGuard, Ctor ctorName args')
-  
+conjToGuardOrAssign :: Conj -> Either Guard (A, Assign)
+conjToGuardOrAssign (U u1 u2)     =
+  case compare (getMinAnn u1) (getMinAnn u2) of
+    LT -> Right (getMinAnn u2, Assign (termToPat u2) (Term $ termToPat u1))
+    GT -> Right (getMinAnn u1, Assign (termToPat u1) (Term $ termToPat u2))
+    EQ -> Left . Guard . fmap termToPat $ [u1, u2]
+conjToGuardOrAssign (I name args) =
+  let (inArgs, (ann, outArgs)) = chooseDirection args
+   in Right (ann, Assign (Tuple . fmap showS $ outArgs) (Call name . fmap (Var . showS) $ inArgs))
+
 -----------------------------------------------------------------------------------------------------
 
-data PatTree = PDef Pat
-             | UndefVar Name
-             | UndefCtor Name [PatTree]
-  deriving (Eq, Show)
-
-patsOrForest :: [PatTree] -> Either [PatTree] [Pat]
-patsOrForest patForest
-  | all isDef patForest = Right (unpackDef <$> patForest)
-  | otherwise           = Left patForest
-    
-isDef :: PatTree -> Bool
-isDef (PDef _) = True
-isDef _        = False
-
-unpackDef :: PatTree -> Pat
-unpackDef (PDef pat) = pat
-unpackDef _          = error "try to unpack undef term"
-    
-pat2tree :: [Name] -> Pat -> PatTree
-pat2tree knownVars = pat2tree'
-  where
-    pat2tree' :: Pat -> PatTree
-    pat2tree' var@(Var v) = if v `elem` knownVars then PDef var else UndefVar v
-    pat2tree' (Ctor ctorName pats) =
-      either (UndefCtor ctorName) (PDef . Ctor ctorName) . patsOrForest $ pat2tree' <$> pats
-
-walk :: M.Map Name Pat -> Pat -> Pat
-walk subst = walk'
-  where
-    walk' :: Pat -> Pat
-    walk' var@(Var v)          = maybe var walk' $ M.lookup v subst
-    walk' (Ctor ctorName pats) = Ctor ctorName (walk' <$> pats)
-    
-
-data Undef = CallFunc Name Name [PatTree]
-           | Unific PatTree PatTree
-  deriving (Eq, Show)
-
-
-unify :: [Name] -> M.Map Name Pat -> Pat -> Pat -> (M.Map Name Pat, [Undef])
-unify knownVars subst pat1 pat2 = unify' (walk subst pat1) (walk subst pat2)
-  where
-    unify' :: Pat -> Pat -> (M.Map Name Pat, [Undef])
-    unify' (Ctor ctorName1 args1) (Ctor ctorName2 args2)
-      | ctorName1 == ctorName2 = bimap M.unions concat . unzip $ zipWith unify' args1 args2
-      | otherwise              = error "ctors unification fails"
-    unify' var@(Var _) pat =
-      let knownVars'' = knownVars ++ M.keys subst
-       in updateSubst subst (pat2tree knownVars'' var) (pat2tree knownVars'' pat)
-    unify' ctor@(Ctor _ _) var@(Var _) = unify' var ctor
-
-updateSubst :: M.Map Name Pat -> PatTree -> PatTree -> (M.Map Name Pat, [Undef])
-updateSubst subst = updateSubst'
-  where
-    updateSubst' :: PatTree -> PatTree -> (M.Map Name Pat, [Undef])
-    updateSubst' (PDef pat1) (PDef pat2)
-      | pat1 == pat2 = (subst, [])
-      | otherwise    = error "unification fails: var & ctor || var & var"
-    -- ПОСМОТРЕТЬ ЭТОТ СЛУЧАЙ ПОДРОБНЕЕ
-    updateSubst' (PDef var)        (UndefCtor _ _)      = error "pattern matching in assign"
-    updateSubst' (UndefVar var)    (PDef pat)           =
-      (M.insertWith (\_ _ -> error $ var ++ " has already defined! CURSED CHECK") var pat subst, [])
-    updateSubst' var1@(UndefVar _) var2@(UndefVar _)    = (subst, [Unific var1 var2])
-    updateSubst' var@(UndefVar _)  ctor@(UndefCtor _ _) = (subst, [Unific var ctor])
-    updateSubst' _                 _                    = error "updateSubst: impossible case"
-
-
-toAssign :: [Name] -> [G X] -> [Assign]
-toAssign knownVars = toAssign' . getSubst [] M.empty [] 
-  where
-    toAssign' :: ([Assign], M.Map Name Pat, [Undef]) -> [Assign]
-    toAssign' (funcDefs, subst, []) =
-      (funcDefs ++) . fmap (uncurry Assign) . M.toList . M.map Term $ subst
-    toAssign' (funcDefs, subst, undefs) =
-      let next@(funcDefs', subst', undefs') = doDef funcDefs subst undefs
-       in if undefs == undefs' then error $ "there are undef vars: " ++ show undefs else toAssign' next
-
-    -- funcs for main loop
-    doDef :: [Assign] -> M.Map Name Pat -> [Undef] ->
-             ([Assign], M.Map Name Pat, [Undef])
-    doDef funcDefs subst []                                            = (funcDefs, subst, [])
-    doDef funcDefs subst (undef@(CallFunc res funcName args) : undefs) =
-      let knownVars'' = getAllKnownVars funcDefs ++ M.keys subst
-       in case patsOrForest (defPatTree knownVars'' subst <$> args) of
-            Left _        -> (\(fd, s, u) -> (fd, s, undef : u)) $ (doDef funcDefs subst undefs)
-            Right argPats -> doDef ((Assign res (Call funcName argPats)) : funcDefs) subst undefs
-    doDef funcDefs subst ((Unific patTree1 patTree2) : undefs)         =
-      let knownVars'' = getAllKnownVars funcDefs ++ M.keys subst
-          patTree1'   = defPatTree knownVars'' subst patTree1
-          patTree2'   = defPatTree knownVars'' subst patTree2
-       in case updateSubst subst patTree1' patTree2' of
-            (subst', []) -> doDef funcDefs subst' undefs
-            (_, undef)   -> (\(fd, s, u) -> (fd, s, undef ++ u)) $ doDef funcDefs subst undefs
-
-    defPatTree :: [Name] -> M.Map Name Pat -> PatTree -> PatTree
-    defPatTree knownVars'' subst = defPatTree'
-      where
-        defPatTree' :: PatTree -> PatTree
-        defPatTree' def@(PDef _)           = def
-        defPatTree' (UndefVar v)          =
-          pat2tree knownVars'' $ walk subst (Var v)
-        defPatTree' (UndefCtor name pats) =
-          let patForest = defPatTree' <$> pats
-           in either (UndefCtor name) (PDef . Ctor name) $ patsOrForest patForest
-    
-    -- funcs for one interation
-    getAllKnownVars :: [Assign] -> [Name]
-    getAllKnownVars funcDefs = knownVars ++ ((\(Assign name _) -> name) <$> funcDefs)
-
-    getSubst :: [Assign] -> M.Map Name Pat -> [Undef] ->
-                [G X] ->
-                ([Assign], M.Map Name Pat, [Undef])
-    getSubst funcDefs subst undefs []                               = (funcDefs, subst, undefs)
-    getSubst funcDefs subst undefs ((Invoke funcName vars) : conjs)
-      | (terms, V res) <- chooseDirection vars =
-          let knownVars''                  = getAllKnownVars funcDefs ++ M.keys subst
-              (funcDefs', subst', undefs') =
-                case patsOrForest (fmap (pat2tree knownVars'' . term2pat) terms) of
-                  Left argForest -> (funcDefs, subst, (CallFunc funcName res argForest) : undefs)
-                  Right argPats  -> (Assign res (Call funcName argPats) : funcDefs, subst, undefs)
-           in getSubst funcDefs' subst' undefs' conjs
-      | otherwise = error $ "res in func call is not var: " ++ show vars
-    getSubst funcDefs subst undefs ((term1 :=: term2) : conjs) =
-      let knownVars''         = getAllKnownVars funcDefs ++ M.keys subst
-          (subst', undefPlus) = unify knownVars'' subst (term2pat term1) (term2pat term2)
-       in getSubst funcDefs subst' (undefs ++ undefPlus) conjs
-    getSubst _        _     _      _                           = error "impossible conj"
-
------------------------------------------------------------------------------------------------------

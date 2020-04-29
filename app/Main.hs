@@ -9,7 +9,8 @@ import           Data.List            (nub, union, intercalate)
 import qualified Data.Set as S
 import           Syntax
 
-import           Annotation           (translate, PreAnn(..))
+import           Annotation           (preTranslate, PreAnn(..))
+import           Translator           (translate)
 import           Parser               (defsAsts)
 
 import           Program.Prop
@@ -72,16 +73,104 @@ main = do
     splitByStructure
 -}
 
-{-
   putStrLn "=====================================================================================\n\n"
   let appendoProgram = createProgram nameToDef "appendo" ["x", "y", "xy"]
   print appendoProgram
   putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ translate appendoProgram [("x", In), ("y", In)]
+  let annDefs1 = preTranslate appendoProgram [("x", In), ("y", In)]
+  print annDefs1
+  print $ translate annDefs1
   putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ translate appendoProgram [("xy", In)]
+{-
+  let annDefs2 = preTranslate appendoProgram [("xy", In)]
+  print annDefs2
+  print $ translate annDefs2
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+-}
+{-
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  let appendoGenProgram = createProgram nameToDef "appendoGen" ["x", "y", "xy"]
+  let goalStack3 = preTranslate appendoGenProgram [("y", In)]
+  print goalStack3
   putStrLn "=====================================================================================\n\n"
 -}
+
+{-
+  putStrLn "=====================================================================================\n\n"
+  let revaccoGenProgram = createProgram nameToDef "revaccoGenIOO" ["xs", "acc", "sx"]
+  print revaccoGenProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ preTranslate revaccoGenProgram [("xs", In)]
+  putStrLn "=====================================================================================\n\n"
+-}
+{-
+  putStrLn "=====================================================================================\n\n"
+  let revaccoGenProgram = createProgram nameToDef "revaccoGenOIO" ["xs", "acc", "sx"]
+  print revaccoGenProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ preTranslate revaccoGenProgram [("acc", In)]
+  putStrLn "=====================================================================================\n\n"
+-}
+{-
+  putStrLn "=====================================================================================\n\n"
+  let revaccoGenProgram = createProgram nameToDef "revaccoGenOOIIIOIOIIII" ["xs", "acc", "sx"]
+  print revaccoGenProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ preTranslate revaccoGenProgram [("sx", In)]
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ preTranslate revaccoGenProgram [("xs", In), ("acc", In)]
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ preTranslate revaccoGenProgram [("xs", In), ("sx", In)]
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ preTranslate revaccoGenProgram [("xs", In), ("acc", In), ("sx", In)]
+  putStrLn "=====================================================================================\n\n"
+-}
+{-
+  putStrLn "=====================================================================================\n\n"
+  let revaccoGenProgram = createProgram nameToDef "revaccoGenIII" ["xs", "acc", "sx"]
+  print revaccoGenProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ preTranslate revaccoGenProgram [("xs", In), ("acc", In), ("sx", In)]
+  putStrLn "=====================================================================================\n\n"
+-}
+
+{-
+  putStrLn "=====================================================================================\n\n"
+  let reversoUnifProgram = createProgram nameToDef "reversoUnif" ["x", "y"]
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print reversoUnifProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ preTranslate reversoUnifProgram [("x", In)]
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ preTranslate reversoUnifProgram [("y", In)]
+  putStrLn "=====================================================================================\n\n"
+-}
+
+
+
+
+
+
+
+
+
+
+
+
+{-
+  putStrLn "=====================================================================================\n\n"
+  let reversoProgram = createProgram nameToDef "reverso" ["x", "y"]
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print reversoProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ preTranslate reversoProgram [("x", In)]
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ preTranslate reversoProgram [("y", In)]
+  putStrLn "=====================================================================================\n\n"
+-}
+
+
+
 
 {-
   putStrLn "=====================================================================================\n\n"
@@ -94,17 +183,8 @@ main = do
   putStrLn "=====================================================================================\n\n"
 -}
 
-{-
-  putStrLn "=====================================================================================\n\n"
-  let reversoProgram = createProgram nameToDef "reverso" ["x", "y"]
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print reversoProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ translate reversoProgram [("x", In)]
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
---  print $ translate reversoProgram [("y", In)]
-  putStrLn "=====================================================================================\n\n"
--}
+
+
 
 {-
   putStrLn "=====================================================================================\n\n"
@@ -150,13 +230,23 @@ main = do
   putStrLn "=====================================================================================\n\n"
 -}
 
+{-
   putStrLn "=====================================================================================\n\n"
   let plainEvaloProgram = plainQuery'
   print plainEvaloProgram
   putStrLn "-------------------------------------------------------------------------------------\n\n"
   print $ translate plainEvaloProgram [("res", In)]
   putStrLn "=====================================================================================\n\n"
+-}
 
+{-
+  putStrLn "=====================================================================================\n\n"
+  let queryProgram = Program evalo $ fresh ["st", "fm", "res"] (call "evalo" [V "st", V "fm", V "res"])
+  print queryProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print $ translate queryProgram [("res", In)]
+  putStrLn "=====================================================================================\n\n"
+-}
 -----------------------------------------------------------------------------------------------------
 
 splitByStructure :: [[Name]]
@@ -283,3 +373,71 @@ splitByOutput = [no, one, many]
 -}
 
 -----------------------------------------------------------------------------------------------------
+
+falso :: Term a
+falso = C "false" []
+
+trueo :: Term a
+trueo = C "true"  []
+
+nandoDef :: Def 
+nandoDef = 
+    ( Def "nando" ["a", "b", "c"]
+        (
+          ( a === falso &&& b === falso &&& c === trueo ) |||
+          ( a === falso &&& b === trueo &&& c === trueo ) |||
+          ( a === trueo &&& b === falso &&& c === trueo ) |||
+          ( a === trueo &&& b === trueo &&& c === falso )
+        )
+    )
+  where 
+    [a, b, c] = map V ["a", "b", "c"]
+
+nando :: [Def] 
+nando = [nandoDef]
+
+notoDef :: Def 
+notoDef =
+    ( Def "noto" ["a", "na"] 
+      ( 
+        call "nando" [a, a, na] 
+      ) 
+    ) 
+  where 
+    [a, na] = map V ["a", "na"]
+
+noto :: [Def]
+noto = notoDef : nando
+
+oroDef :: Def
+oroDef =
+    ( Def "oro" ["a", "b", "c"]
+        (
+          fresh ["aa", "bb"]
+            (
+              call "nando" [a, a, aa] &&&
+              call "nando" [b, b, bb] &&&
+              call "nando" [aa, bb, c]
+            )
+        )
+    ) 
+  where 
+    [a, b, c, aa, bb] = map V ["a", "b", "c", "aa", "bb"]
+
+oro :: [Def]
+oro = oroDef : nando
+
+andoDef :: Def
+andoDef =
+    ( Def "ando" ["a", "b", "c"] 
+      (
+        fresh ["ab"] 
+        (
+          call "nando" [a, b, ab] &&&
+          call "nando" [ab, ab, c]
+        )
+      )
+    )
+  where 
+    [a, b, c, ab] = map V ["a", "b", "c", "ab"]
+
