@@ -1,5 +1,3 @@
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 
 module Translator (
@@ -7,7 +5,8 @@ module Translator (
   ) where
 
 import           AFSyntax
-import           Annotation
+import           Annotator.Main
+import           Annotator.Types (AnnDef (..), Conj (..))
 
 import           Syntax
 
@@ -18,7 +17,6 @@ import qualified Data.Map.Strict as M
 import           Data.Tuple (swap)
 
 import           Debug.Trace
-
 
 -----------------------------------------------------------------------------------------------------
 

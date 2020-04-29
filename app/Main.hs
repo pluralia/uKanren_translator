@@ -9,7 +9,8 @@ import           Data.List            (nub, union, intercalate)
 import qualified Data.Set as S
 import           Syntax
 
-import           Annotation           (preTranslate, PreAnn(..))
+import           Annotator.Main       (preTranslate)
+import           Annotator.Types      (PreAnn(..))
 import           Translator           (translate)
 import           Parser               (defsAsts)
 

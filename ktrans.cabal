@@ -20,9 +20,10 @@ source-repository head
 
 library
   exposed-modules:
-      Annotation
+      AFSyntax
+    , Annotator.Main
+    , Annotator.Types
     , Parser
-    , AFSyntax
     , Translator
   other-modules:
   hs-source-dirs: src
