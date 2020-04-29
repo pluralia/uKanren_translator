@@ -23,6 +23,7 @@ library
       AFSyntax
     , Annotator.Main
     , Annotator.Types
+    , Init
     , Parser
     , Translator
   other-modules:
