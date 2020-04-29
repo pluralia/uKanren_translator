@@ -10,7 +10,6 @@ import qualified Data.Set as S
 import           Syntax
 
 import           Annotator.Main       (preTranslate)
-import           Annotator.Types      (PreAnn(..))
 import           Translator           (translate)
 import           Parser               (defsAsts)
 
@@ -78,12 +77,12 @@ main = do
   let appendoProgram = createProgram nameToDef "appendo" ["x", "y", "xy"]
   print appendoProgram
   putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs1 = preTranslate appendoProgram [("x", In), ("y", In)]
+  let annDefs1 = preTranslate appendoProgram ["x", "y"]
   print annDefs1
   print $ translate annDefs1
   putStrLn "-------------------------------------------------------------------------------------\n\n"
 {-
-  let annDefs2 = preTranslate appendoProgram [("xy", In)]
+  let annDefs2 = preTranslate appendoProgram ["xy"]
   print annDefs2
   print $ translate annDefs2
   putStrLn "-------------------------------------------------------------------------------------\n\n"

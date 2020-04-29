@@ -20,6 +20,7 @@ import           Annotator.Internal.Core
 import           Annotator.Internal.Lib
 import           Annotator.Internal.Normalization
 import           Annotator.Internal.Stack
+import           Annotator.Internal.Types
 import           Annotator.Types
 
 import           Debug.Trace           (trace)
@@ -27,7 +28,7 @@ import           Debug.Trace           (trace)
 
 ----------------------------------------------------------------------------------------------------
 
---preTranslate :: Program -> [(X, PreAnn)] -> [AnnDef]
+preTranslate :: Program -> [X] -> [AnnDef]
 preTranslate program = trace ("Program: " ++ (show scope) ++ "\n\nSCOPE:" ++ (show scope) ++ "\n\n") $
   makeStackBeauty .
   filterStack . snd .
@@ -56,12 +57,7 @@ makeStackBeauty = concatMap (\(name, aoSet) -> fmap (go name) . S.toList $ aoSet
 
 ----------------------------------------------------------------------------------------------------
 
-preAnnToAnn :: PreAnn -> Ann
-preAnnToAnn In = Just 0
-
-----------------------------------------------------------------------------------------------------
-
-initTranslation ::  E.Gamma -> G X -> [(X, PreAnn)] -> (E.Gamma, [[G (S, Ann)]])
+initTranslation ::  E.Gamma -> G X -> [X] -> (E.Gamma, [[G (S, Ann)]])
 initTranslation gamma goal xPreAnn =
   let (_, iota, _) = gamma
    in {- trace ("Iota before init: " ++ E.showInt iota) $ -}
@@ -70,7 +66,7 @@ initTranslation gamma goal xPreAnn =
          (_, iota'@(_, xToTs), _)   = gamma'
          normalizedGoal             = LC.normalize unfreshedGoal
          normUnifGoal               = normalizeUnif normalizedGoal
-         xAnn                       = second preAnnToAnn <$> xPreAnn
+         xAnn                       = (, Just 0) <$> xPreAnn
          preAnnotatedGoal           = fmap (initAnnotation xToTs xAnn) <$> normUnifGoal
       in {- trace ("Iota after init: " ++ E.showInt iota') -} (gamma', preAnnotatedGoal)
 

@@ -4,23 +4,21 @@ module Translator (
     translate
   ) where
 
-import           AFSyntax
-import           Annotator.Main
-import           Annotator.Types (AnnDef (..), Conj (..))
-
-import           Syntax
-
 import           Data.Either (partitionEithers)
 import           Data.Bifunctor (bimap, first, second)
 import           Data.List (partition, sortOn, groupBy)
 import qualified Data.Map.Strict as M
 import           Data.Tuple (swap)
 
+import           Syntax
+
+import           AFSyntax
+import           Annotator.Main
+import           Annotator.Types
+
 import           Debug.Trace
 
 -----------------------------------------------------------------------------------------------------
-
-type A = Word
 
 showS :: S -> String
 showS s = 's' : show s

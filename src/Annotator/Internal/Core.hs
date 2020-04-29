@@ -18,7 +18,7 @@ import           Syntax
 import           Annotator.Internal.Normalization
 import           Annotator.Internal.Lib
 import           Annotator.Internal.Stack
-import           Annotator.Types
+import           Annotator.Internal.Types
 
 import           Debug.Trace           (trace)
 

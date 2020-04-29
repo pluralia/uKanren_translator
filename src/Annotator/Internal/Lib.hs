@@ -3,7 +3,7 @@ module Annotator.Internal.Lib where
 import           Data.List (nub)
 import           Syntax
 
-import           Annotator.Types
+import           Annotator.Internal.Types
 
 ----------------------------------------------------------------------------------------------------
 

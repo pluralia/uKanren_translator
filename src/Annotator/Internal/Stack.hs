@@ -15,7 +15,7 @@ import qualified Data.Set         as S
 import           Syntax
 
 import           Annotator.Internal.Lib
-import           Annotator.Types
+import           Annotator.Internal.Types
 
 import           Debug.Trace           (trace)
 

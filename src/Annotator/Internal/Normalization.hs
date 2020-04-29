@@ -14,7 +14,7 @@ import qualified Eval             as E
 import           Syntax
 
 import           Annotator.Internal.Lib
-import           Annotator.Types
+import           Annotator.Internal.Types
 
 import           Debug.Trace           (trace)
 
