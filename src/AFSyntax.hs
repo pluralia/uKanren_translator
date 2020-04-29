@@ -1,8 +1,12 @@
 module AFSyntax where
 
 
+import           Data.List (intercalate)
+
+
 data Pat = Var String
          | Ctor String [Pat]
+         | Tuple [String]
   deriving (Eq, Ord)
 
 
@@ -11,10 +15,10 @@ data Expr = Term Pat
   deriving (Eq, Ord)
 
 
-data Assign = Assign String Expr
+data Assign = Assign Pat Expr
   deriving (Eq, Ord)
 
-newtype Guard = Guard [String]
+newtype Guard = Guard [Pat]
   deriving (Eq, Ord)
 
 data Line = Line [Pat] [Guard] [Assign] Expr
@@ -38,36 +42,40 @@ instance Show Pat where
       ctor2str "false" []     = show False
       ctor2str "true"  []     = show True
       ctor2str ctor    args   = '(' : ctor ++ " " ++ unwords args ++ ")"
+  show (Tuple elems)    = '(' : intercalate ", " elems ++ ")"
 
 
 instance Show Expr where
   show (Term pat)           = show pat
-  show (Call funcName args) = funcName ++ ' ' : unwords (show <$> args)
+  show (Call funcName args) = funcName ++ " " ++ unwords (show <$> args)
 
 
 instance Show Assign where
-  show (Assign name expr@(Term _))   = "let " ++ name ++ " = " ++ show expr
-  show (Assign name expr@(Call _ _)) = name ++ " <- " ++ show expr
+  show (Assign name expr@(Term _))   = "let " ++ show name ++ " = " ++ show expr
+  show (Assign name expr@(Call _ _)) = show name ++ " <- " ++ show expr
 
 
 instance Show Guard where
-  show (Guard [])          = ""
-  show (Guard (name : xs)) =
-    let rvalue = ", " ++ name ++ " == "
-     in drop 2 . unwords . fmap (rvalue ++) $ xs 
+  show (Guard [])       = ""
+  show (Guard (x : xs)) =
+    let rvalue = show x ++ " == "
+     in intercalate ", " . fmap ((rvalue ++) . show) $ xs 
 
 
 instance Show Line where
   show (Line pats guards assigns expr) =
-    (unwords $ show <$> pats) ++ printIfGuard guards ++ " = " ++ printIfAssigns assigns ++ printExpr expr
+    (unwords . fmap show $ pats) ++
+    printIfGuard guards ++ " = " ++
+    printIfAssigns assigns ++
+    printExpr expr
     where
       printIfGuard :: [Guard] -> String
       printIfGuard []     = ""
-      printIfGuard guards = " | " ++ (drop 2 . unwords . fmap ((", " ++) . show) $ guards)
+      printIfGuard guards = " | " ++ (intercalate ", " . fmap show $ guards)
 
       printIfAssigns :: [Assign] -> String
       printIfAssigns []      = ""
-      printIfAssigns assigns = "do" ++ (unwords $ (("\n  " ++) . show) <$> reverse assigns) ++ "\n  "
+      printIfAssigns assigns = "do\n  " ++ (intercalate "\n  " . fmap show $ assigns) ++ "\n  "
 
       printExpr :: Expr -> String
       printExpr expr@(Term _) = "return $ " ++ show expr
@@ -84,7 +92,7 @@ instance Show F where
       mainFunc =
         let argsStr = unwords (getNamesByNum "x" argsNum)
          in funcName ++ " " ++ argsStr ++ " = "
-            ++ (drop 3 . unwords . fmap (\x -> "++ " ++ x ++ " " ++ argsStr) $ subFuncsName) ++ "\n"
+            ++ (intercalate " ++ " . fmap (++ " " ++ argsStr) $ subFuncsName) ++ "\n"
 
       subFuncs = unlines (subFuncGen `concatMap` zip subFuncsName (show <$> lines))
 
