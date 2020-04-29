@@ -2,228 +2,44 @@ module Main (
       main
     ) where
 
-import           Control.Monad        ((>=>))
-import qualified Data.Map.Strict as M
-import           Data.Maybe           (fromMaybe)
-import           Data.List            (nub, union, intercalate)
-import qualified Data.Set as S
-import           Syntax
 import           Test.Hspec
 
-import           Annotation           (translate, PreAnn(..))
-import           Parser               (defsAsts)
-
 import           Program.Prop
+import           Syntax
+
+import           Annotator.Main       (preTranslate)
+import           Init
+import           Translator           (translate)
 
 -----------------------------------------------------------------------------------------------------
 
-instance Show Program where
-  show (Program defs goal) = unlines ["Program:", show goal, show defs]
-
------------------------------------------------------------------------------------------------------
-
-defsByNames :: M.Map Name Def -> [Name] -> [Def]
-defsByNames nameToDef =
-  fmap (\name -> fromMaybe (error $ "no func: " ++ name) $ M.lookup name nameToDef)
-
-
-createProgram :: M.Map Name Def -> Name -> [Name] -> Program
-createProgram nameToDef name args =
-  let goal = makeFresh name args in Program (defsByGoal [] goal) goal
-  where
-    makeFresh :: Name -> [Name] -> G X
-    makeFresh name args = fresh args $ Invoke name (V <$> args)
-
-    defsByGoal :: [Def] -> G X -> [Def]
-    defsByGoal knownDefs goal =
-      let defs       = nub . defsByNames nameToDef . namesOfInvokes $ goal
-          newDefs    = filter (`notElem` knownDefs) defs
-       in defs `union` concatMap (\(Def _ _ goal) -> defsByGoal defs goal) newDefs
-    
-    namesOfInvokes :: G X -> [Name]
-    namesOfInvokes (_ :=: _)       = []
-    namesOfInvokes (g1 :/\: g2)    = namesOfInvokes g1  ++ namesOfInvokes g2
-    namesOfInvokes (g1 :\/: g2)    = namesOfInvokes g1  ++ namesOfInvokes g2
-    namesOfInvokes (Fresh _ g)     = namesOfInvokes g
-    namesOfInvokes (Invoke name _) = [name]
-    namesOfInvokes (Let _ _)       = error "LET"
-
-initDefsByNames :: IO (M.Map Name Def)
-initDefsByNames = do
-  let
-      inDirName = "../resources/"
-      inFileNames = (inDirName ++) <$> ["list", "num", "bool", "programs"]
-  listListDefs <- mapM
-                    (\fileName -> do
-                        input <- readFile fileName
-                        return . defsAsts $ input
-                    )
-                    inFileNames
-  return . M.fromList . fmap (\def@(Def name _ _) -> (name, def)) . concat $ listListDefs
+ann = preTranslate
+trans program = translate . preTranslate program
 
 -----------------------------------------------------------------------------------------------------
 
 main :: IO ()
 main = do
-  nameToDef <- initDefsByNames
-{-
-  -- print all defs by splitByStructure
-  mapM_
-    (print . defsByNames nameToDef)
-    splitByStructure
--}
-  putStrLn "=====================================================================================\n\n"
-
-  let appendoProgram    = createProgram nameToDef "appendo" ["x", "y", "xy"]
-  print appendoProgram
-  print $ translate appendoProgram [("x", In), ("y", In)]
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ translate appendoProgram [("xy", In)]
-
-  putStrLn "=====================================================================================\n\n"
-
-{-
-  let reversoProgram = createProgram nameToDef (fresh ["x", "y"] $ Invoke "reverso" [V "x", V "y"])
-  print reversoProgram
-  print $ translate reversoProgram [("x", In)]
--}
-{-
-  let plainEvaloProgram = plainQuery'
-  print plainEvaloProgram
-  let (goal, stack) = translate plainEvaloProgram [("res", In)]
-  print goal
--}
-{- 
-  let reversoProgram = createProgram nameToDef (fresh ["xs", "acc", "sx"] $ Invoke "revacco" [V "xs", V "acc", V "sx"])
-  print reversoProgram
-  let (goal, stack) = translate reversoProgram [("xs", In)]
-  print goal
-  putStrLn ""
-  mapM_ print $ M.toList . fmap S.toList $ stack
--}
------------------------------------------------------------------------------------------------------
-
-splitByStructure :: [[Name]]
-splitByStructure = concat $ [
-                     [fresh, unfresh]
-                   , [dnf, undnf]
-                   , [call, uncall]
-                   ]
-  where
-    fresh, unfresh :: [Name]
-    fresh   = [
-                -- bool
-                "oro", "ando"
-                -- list
-              , "appendo", "listo", "membero", "copy", "copy2", "lengtho", "maxo1", "reverso", "revacco"
-                -- num
-              , "notZero", "addo", "mulo", "leo", "gto"
-                -- programs
-              , "doubleAppendo", "singletonReverso", "isNum", "genLists", "has5", "eveno", "test", "go"
-              ]
-    unfresh = [
-                -- bool
-                "nando", "noto"
-                -- list
-              , "inBotho", "nilo", "singletono", "maxLengtho", "copy2", "copycopy", "maxo"
-                -- num
-              , "geo", "lto"
-                -- programs
-              , "palindromo", "doubleo", "emptyAppendo", "appendo123", "appendoXyz", "is5", "check5", "checkList5", "checkList51", "makeX", "makeY", "makeA", "makeB"
-              ]
-
-    dnf, undnf :: [Name]
-    dnf   = [
-              -- bool
-              "nando", "noto", "oro", "ando"
-              -- list
-            , "appendo", "listo", "inBotho", "nilo", "singletono", "maxLengtho", "copy", "copy2", "copycopy", "lengtho", "maxo1", "maxo", "reverso", "revacco"
-              -- num
-            , "notZero", "addo", "mulo", "leo", "gto", "geo", "lto"
-              -- programs
-            , "doubleAppendo", "singletonReverso", "isNum", "genLists", "has5", "eveno", "test", "go", "palindromo", "doubleo", "emptyAppendo", "appendo123", "appendoXyz", "is5", "check5", "checkList5", "checkList51", "makeX", "makeY", "makeA", "makeB"
-            ]
-    undnf = [
-              -- list
-              "membero"
-            ]
-
-    call, uncall :: [Name]
-    call   = [
-               -- bool
-               "noto", "oro", "ando"
-               -- list
-             , "appendo", "listo", "membero", "inBotho", "maxLengtho", "copy", "copy2", "copycopy", "lengtho", "maxo1", "maxo", "reverso", "revacco"
-               -- num
-             , "addo", "mulo", "leo", "gto", "geo", "lto"
-               -- programs
-             , "doubleAppendo", "singletonReverso", "genLists", "has5", "eveno", "test", "go", "palindromo", "doubleo", "emptyAppendo", "appendo123", "appendoXyz", "check5", "checkList5", "checkList51"
-             ]
-    uncall = [
-               -- bool
-               "nando"
-               -- list
-             , "nilo", "singletono" 
-               -- num
-             , "notZero"
-               -- programs
-             , "is5", "isNum", "makeX", "makeY", "makeA", "makeB"
-             ]
-
-
--- there are calls but not recursive
--- no < self < cyclic: if no and self -> self
-splitByRecursion :: [[Name]]
-splitByRecursion = [no, self, cyclic]
-  where
-    no, self, cyclic :: [Name]
-    no     = [
-               -- bool
-               "nando", "noto", "oro", "ando"
-               -- list
-             , "maxLengtho", "copycopy", "maxo"
-               -- num
-             , "geo", "lto"
-               -- programs
-             , "reverso", "doubleAppendo", "doubleo", "emptyAppendo", "appendo123", "appendoXyz", "singletonReverso", "check5", "checkList5", "checkList51", "eveno", "test", "go"
-             ]
-    self   = [
-               -- list
-               "appendo", "listo", "membero", "copy", "copy2", "lengtho", "maxo1", "reverso", "revacco"
-               -- num
-             , "addo", "mulo", "leo", "gto" 
-               -- programs
-             , "getLists", "has5"
-             ]
-    cyclic = [
-             ]
-
-{-
-splitByInput :: [[Name]]
-splitByInput = [predicate, function]
-  where
-    predicate, function :: [Name]
-    predicate = [
-               
-                ]
-    function  = [
-
-                ]
-
-
-splitByOutput :: [[Name]]
-splitByOutput = [no, one, many]
-  where
-    no, one, many :: [Name]
-    no   = [
-
-           ]
-    one  = [
-
-           ]
-    many = [
-
-           ]
--}
+  let inDirName = "resources/"
+      inFileNames = (inDirName ++) <$> ["list", "num", "bool", "programs", "extra"]
+  nameToDef <- initDefsByNames inFileNames
+  hspec $ do
 
 -----------------------------------------------------------------------------------------------------
+
+    describe "appendo: ann" $ do
+      let program = createProgram nameToDef "appendo" ["x", "y", "xy"]
+      it "IN IN OUT" $ do
+        show (ann program ["x", "y"]) `shouldBe` "[AnnDef \"appendo\" [(0,0),(1,0),(2,1)] [[U v.(0,0) [],U v.(2,1) v.(1,0)],[U v.(0,0) (v.(3,1) : v.(4,1)),U v.(2,3) (v.(3,1) : v.(5,2)),I \"appendo\" [(4,1),(1,0),(5,2)]]]]"
+      it "OUT OUT IN" $ do
+        show (ann program ["xy"]) `shouldBe` "[AnnDef \"appendo\" [(0,1),(1,1),(2,0)] [[U v.(0,1) [],U v.(2,0) v.(1,1)],[U v.(0,3) (v.(3,1) : v.(4,2)),U v.(2,0) (v.(3,1) : v.(5,1)),I \"appendo\" [(4,2),(1,2),(5,1)]]]]"
+
+    describe "appendo: trans" $ do
+      let program = createProgram nameToDef "appendo" ["x", "y", "xy"]
+      it "IN IN OUT" $ do
+        show (trans program ["x", "y"]) `shouldBe` "[appendo x0 x1 = appendo0 x0 x1 ++ appendo1 x0 x1\nappendo0 [] s2 = return $ (s2)\nappendo0 _ _ = []\nappendo1 (s3 : s4) s1 = do\n  (s5) <- appendo s4 s1\n  let s2 = (s3 : s5)\n  return $ (s2)\nappendo1 _ _ = []\n]"
+      it "OUT OUT IN" $ do
+        show (trans program ["xy"]) `shouldBe` "[appendo x0 = appendo0 x0 ++ appendo1 x0\nappendo0 s1 = do\n  let s0 = []\n  return $ (s0, s1)\nappendo0 _ = []\nappendo1 (s3 : s5) = do\n  (s4, s1) <- appendo s5\n  let s0 = (s3 : s4)\n  return $ (s0, s1)\nappendo1 _ = []\n]"
+
+-----------------------------------------------------------------------------------------------------
+

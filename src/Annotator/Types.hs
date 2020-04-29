@@ -6,12 +6,12 @@ import           Syntax
 ----------------------------------------------------------------------------------------------------
 
 data AnnDef = AnnDef Name [(S, Word)] [[Conj]]
-  deriving Show
+  deriving (Show, Eq)
 
 
 data Conj = U (Term (S, Word)) (Term (S, Word))
           | I Name [(S, Word)]
-  deriving Show
+  deriving (Show, Eq)
 
 type A = Word
 

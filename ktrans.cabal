@@ -27,6 +27,11 @@ library
     , Parser
     , Translator
   other-modules:
+      Annotator.Internal.Core
+    , Annotator.Internal.Lib
+    , Annotator.Internal.Normalization
+    , Annotator.Internal.Stack
+    , Annotator.Internal.Types
   hs-source-dirs: src
   build-depends:
       base >=4.7 && <5
