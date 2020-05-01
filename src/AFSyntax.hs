@@ -4,21 +4,24 @@ module AFSyntax where
 import           Data.List (intercalate)
 
 
-data Pat = Var String
-         | Ctor String [Pat]
-         | Tuple [String]
+data Atom = Var String
+          | Ctor String [Atom]
+          | Tuple [String]
   deriving (Eq, Ord)
 
 
-data Expr = Term Pat
-          | Call String [Pat]
+data Expr = Term Atom
+          | Call String [Atom]
   deriving (Eq, Ord)
 
 
-data Assign = Assign Pat Expr
+data Assign = Assign Atom Expr
   deriving (Eq, Ord)
 
-newtype Guard = Guard [Pat]
+newtype Guard = Guard [Atom]
+  deriving (Eq, Ord)
+
+data Pat = Pat (Maybe String) Atom
   deriving (Eq, Ord)
 
 data Line = Line [Pat] [Guard] [Assign] Expr
@@ -30,7 +33,7 @@ data F = F String [Line]
 
 -----------------------------------------------------------------------------------------------------
 
-instance Show Pat where
+instance Show Atom where
   show (Var var)        = var
   show (Ctor name args) = ctor2str name (show <$> args)
     where
@@ -46,7 +49,7 @@ instance Show Pat where
 
 
 instance Show Expr where
-  show (Term pat)           = show pat
+  show (Term atom)          = show atom
   show (Call funcName args) = funcName ++ " " ++ unwords (show <$> args)
 
 
@@ -60,6 +63,11 @@ instance Show Guard where
   show (Guard (x : xs)) =
     let rvalue = show x ++ " == "
      in intercalate ", " . fmap ((rvalue ++) . show) $ xs 
+
+
+instance Show Pat where
+  show (Pat Nothing atom)     = show atom
+  show (Pat (Just name) atom) = name ++ "@" ++ show atom
 
 
 instance Show Line where

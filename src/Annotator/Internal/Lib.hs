@@ -7,6 +7,16 @@ import           Annotator.Internal.Types
 
 ----------------------------------------------------------------------------------------------------
 
+fixPoint :: (Eq a) => (a -> a) -> a -> a
+fixPoint handler = fixPoint'
+  where
+    fixPoint' input =
+      let input1 = handler input
+          input2 = handler input1
+       in if input1 == input2 then input1 else fixPoint' input2
+
+----------------------------------------------------------------------------------------------------
+
 getVarsT :: (Eq a) => Term a -> [a]
 getVarsT = nub . go
   where

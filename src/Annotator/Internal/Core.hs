@@ -11,9 +11,9 @@ import           Data.Maybe            (fromMaybe, isJust, catMaybes, isNothing)
 import           Data.List             (groupBy, sortBy)
 import qualified Data.Set         as S
 
-import qualified CPD.LocalControl as LC
 import qualified Eval             as E
 import           Syntax
+import qualified Unfold           as U
 
 import           Annotator.Internal.Normalization
 import           Annotator.Internal.Lib
@@ -25,17 +25,9 @@ import           Debug.Trace           (trace)
 ----------------------------------------------------------------------------------------------------
 
 annotate :: E.Gamma -> [[G (S, Ann)]] -> ([[G (S, Ann)]], Stack)
-annotate gamma goal = annotateInternal False "" gamma . (, M.empty) $ goal
+annotate gamma = annotateInternal False "" gamma . (, M.empty)
 
-
-fixPoint :: (Eq a) => (a -> a) -> a -> a
-fixPoint handler = fixPoint'
-  where
-    fixPoint' input =
-      let input1 = handler input 
-          input2 = handler input1
-       in if input1 == input2 then input1 else fixPoint' input2
-
+----------------------------------------------------------------------------------------------------
 
 annotateInternal :: Bool -> Name -> E.Gamma -> ([[G (S, Ann)]], Stack) -> ([[G (S, Ann)]], Stack)
 annotateInternal isRecCall mainName gamma@(defByName, (_, xToTs), _) = annotateGoal
@@ -45,8 +37,9 @@ annotateInternal isRecCall mainName gamma@(defByName, (_, xToTs), _) = annotateG
       foldr (\x (acc, st) -> (: acc) `first` annotateDisj (x, st)) ([], stack) disjList
 
     annotateDisj :: ([G (S, Ann)], Stack) -> ([G (S, Ann)], Stack)
-    annotateDisj (conjList, stack) =
-      if null res then (if isRecCall then head resDisjStackList else trace ("FAIL DISJ") $ head resDisjStackList) else head res
+    annotateDisj (conjList, stack)
+      | null res  = error "annotate: FAIL DISJ"
+      | otherwise = head res
       where
         resDisjStackList = fmap (fixPoint annotateDisjInternal . (, stack)) . disjPerm $ conjList
         res              = dropWhile (disjStackPred mainName) resDisjStackList
@@ -87,8 +80,8 @@ annotateInternal isRecCall mainName gamma@(defByName, (_, xToTs), _) = annotateG
         initInvAnnotation :: (E.Gamma, ([[G (S, Ann)]], Stack))
         initInvAnnotation = trace (mainName ++ ": unfoldName") $ 
           let
-              (unfreshedGoal, updGamma) = LC.oneStepUnfold (fst <$> invoke) gamma
-              normalizedGoal            = LC.normalize unfreshedGoal
+              (unfreshedGoal, updGamma) = U.oneStepUnfold (fst <$> invoke) gamma
+              normalizedGoal            = U.normalize unfreshedGoal
               normUnifGoal              = normalizeUnif normalizedGoal
               preAnnotatedGoal          = updGoalAnnsByTerm terms normUnifGoal
               stackWithTheGoal          = addToStack stack name terms preAnnotatedGoal

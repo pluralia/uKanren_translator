@@ -3,7 +3,7 @@ module Annotator.Internal.Stack (
     addToStack
   , disjPerm
   , disjStackPred
-  , filterStack
+  , maybeStack
   ) where
 
 
@@ -21,19 +21,12 @@ import           Debug.Trace           (trace)
 
 ----------------------------------------------------------------------------------------------------
 
-addToStack :: Stack -> Name -> [Term (S, Ann)] -> [[G (S, Ann)]] -> Stack
-addToStack stack name terms goal = trace ("addToStack: " ++ name ++ " | " ++ show terms ++ " | " ++ show (argsOrder terms goal)) $
-  let updArgsOrderSet = S.insert (argsOrder terms goal) . fromMaybe S.empty $ M.lookup name stack
-   in M.insert name updArgsOrderSet stack
-
-
-filterStack :: Stack -> Stack
-filterStack stack = fmap (errorIfUndefStack . S.filter argsOrderPred) stack
-  where
-    errorIfUndefStack :: S.Set ArgsOrder -> S.Set ArgsOrder
-    errorIfUndefStack set
-      | S.null set = error $ "UNDEFINED IN STACK\n" ++ show stack
-      | otherwise  = set
+maybeStack :: Stack -> Maybe Stack
+maybeStack stack =
+  let 
+      filteredArgsOrderStack = M.map (S.filter argsOrderPred) $ stack
+      filteredStack          = M.filter (not . S.null) filteredArgsOrderStack
+   in if filteredArgsOrderStack == filteredStack then Just filteredStack else Nothing
 
 ----------------------------------------------------------------------------------------------------
 
@@ -41,6 +34,14 @@ argsOrderPred :: ArgsOrder -> Bool
 argsOrderPred (ArgsOrder anns goal _) =
   all isJust anns &&
   (all (isJust . snd) . concatMap (concatMap getVars) $ goal)
+
+----------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+
+addToStack :: Stack -> Name -> [Term (S, Ann)] -> [[G (S, Ann)]] -> Stack
+addToStack stack name terms goal = trace ("addToStack: " ++ name ++ " | " ++ show terms ++ " | " ++ show (argsOrder terms goal)) $
+  let updArgsOrderSet = S.insert (argsOrder terms goal) . fromMaybe S.empty $ M.lookup name stack
+   in M.insert name updArgsOrderSet stack
 
 ----------------------------------------------------------------------------------------------------
 
@@ -69,7 +70,7 @@ disjStackPred name (list, stD) = not $ isNoUndef list && isAllInvDef
 
     isDefInv :: G a -> Bool
     isDefInv (Invoke name _) = maybe False (any argsOrderPred) $ M.lookup name stD
-    isDefInv _               = error "isDefInv is undefined for not invoke goal"
+    isDefInv _               = False
 
 ----------------------------------------------------------------------------------------------------
 

@@ -1,19 +1,14 @@
-:: reversoRev x y = conde
-  (x === [] /\ y === [])
-  ([h t rt :
-     {appendo rt (h % []) y} /\ {reversoRev t rt} /\ x === h % t])
-
-
-:: appendoCtorsUnif x y xy = conde
+:: appendoPat x y xy = conde
   (x === [] /\ xy === y)
-  ([h t ty:
-     {appendoCtorsUnif t y ty} /\ x % xy % [] === (h % t) % (h % ty) % []])
+  ([h t ty xx yy zz ww:
+     x === ww /\ x === ((xx % yy) % zz) /\ x === h % t /\ xy === h % ty /\ {appendoPat t y ty}])
 
+-----------------------------------------------------------------------------------------------------
 
 :: appendoGen x y xy = conde
   (x === [] /\ xy === y)
   ([h t ty:
-     h === <GEN:> /\ x === h % t /\ xy === h % ty /\ {appendoGen t y ty}])
+     h === <gen:> /\ x === h % t /\ xy === h % ty /\ {appendoGen t y ty}])
 
 -----------------------------------------------------------------------------------------------------
 
@@ -21,6 +16,35 @@
   (x === [] /\ y === [])
   ([h t rt hemp:
      x === h % t /\ {reversoUnif t rt} /\ hemp === h % [] /\ {appendo rt hemp y}])
+
+-----------------------------------------------------------------------------------------------------
+
+:: reversoUnifRev x y = conde
+  (x === [] /\ y === [])
+  ([h t rt hemp:
+     x === h % t /\ {reversoUnifRev t rt} /\ hemp === h % [] /\ {appendo rt hemp y}])
+
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+
+:: funcAcc xs acc sx v = conde
+  (xs === [] /\ v % acc === sx)
+  ([h t hh:
+    xs === h % t /\ {funcAcc t (h % acc) (hh % []) v} /\ v === hh /\ sx === hh % (zero % [])])
+
+
+:: revaccoAcc xs acc sx = conde
+  (xs === [] /\ sx === acc)
+  ([h t hacc:
+     xs === h % t /\ hacc === h % acc /\ {revaccoAcc t hacc sx}])
+
+-----------------------------------------------------------------------------------------------------
+
+:: appendoCtorsUnif x y xy = conde
+  (x === [] /\ xy === y)
+  ([h t ty:
+     {appendoCtorsUnif t y ty} /\ x % xy % [] === (h % t) % (h % ty) % []])
 
 -----------------------------------------------------------------------------------------------------
 
