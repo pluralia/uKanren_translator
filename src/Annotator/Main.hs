@@ -30,7 +30,7 @@ preTranslate program inX =
       gamma                 = E.updateDefsInGamma E.env0 scope
       (initGamma, initGoal) = initTranslation gamma goal inX
       (_, stack)            = annotate initGamma initGoal
-   in makeStackBeauty . maybe (error "FAILED STACK") id . maybeStack $ stack
+   in {- makeStackBeauty . -} maybe (error "FAILED STACK") id . maybeStack $ stack
 
 ----------------------------------------------------------------------------------------------------
 
