@@ -14,6 +14,8 @@ import           Text.Printf           (printf)
 
 import           Syntax
 
+import           Debug.Trace
+
 ----------------------------------------------------------------------------------------------------
 
 -- Binding-time annotation:
@@ -27,37 +29,15 @@ type Stack = M.Map Name (S.Set ArgsOrder)
 
 ----------------------------------------------------------------------------------------------------
 
-annToMask :: [Ann] -> [[S]]
-annToMask = fmap (fmap fst)
-          . groupBy (\(_, ann1) (_, ann2) -> ann1 == ann2)
-          . sortBy (\(_, ann1) (_, ann2) -> compare ann1 ann2)
-          . zip [0..]
-
-
 data ArgsOrder = ArgsOrder [Ann] [[G (S, Ann)]] [S]
 
 
 instance Eq ArgsOrder where
-  (ArgsOrder anns1 _ _) == (ArgsOrder anns2 _ _) =
-    (checkArgs anns1 anns2 || checkArgs anns2 anns1) && checkAnns (annToMask anns1) (annToMask anns2)
-    where
-      checkArgs :: [Ann] -> [Ann] -> Bool
-      checkArgs ax ay = all (\(x, y) -> x <= y) $ zip ax ay
-
-      checkAnns :: [[S]] -> [[S]] -> Bool
-      checkAnns ax ay = not . null $ go ax `intersect` go ay
-        where
-          go :: [[S]] -> [[S]]
-          go []       = []
-          go [x]      = permutations x
-          go (x : xs) = do
-            h <- permutations x
-            t <- go xs
-            return $ h ++ t
+  argsOrder1 == argsOrder2 = argsOrder1 <= argsOrder2 || argsOrder2 <= argsOrder1
 
 
 instance Ord ArgsOrder where
-  (ArgsOrder anns1 _ _) <= (ArgsOrder anns2 _ _) = annToMask anns1 <= annToMask anns2
+  (ArgsOrder anns1 _ _) <= (ArgsOrder anns2 _ _) = all (\(x, y) -> x <= y) $ zip anns1 anns2
 
 
 instance Show ArgsOrder where
@@ -98,7 +78,7 @@ instance {-# OVERLAPPING #-} Show (G (S, Ann)) where
      in printf "fresh %s (%s)" (unwords $ map show $ reverse names) (show goal)
   show (Invoke name ts) =
     printf "%s %s" name 
-                     (unwords $ map (\x -> if ' ' `elem` x then printf "(%s)" x else x) $ map show ts)
+                   (unwords $ map (\x -> if ' ' `elem` x then printf "(%s)" x else x) $ map show ts)
   show (Let (Def name args body) g) =
     printf "let %s %s = %s in %s" name (unwords args) (show body) (show g)
 

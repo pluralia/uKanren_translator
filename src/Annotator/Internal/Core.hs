@@ -85,18 +85,24 @@ annotateInternal mainName gamma@(defByName, (_, xToTs), _) = annotateGoal
         annotateInvoke = trace (mainName ++ ": unfoldName") $ 
           let
               (unfreshedGoal, updGamma) = U.oneStepUnfold (fst <$> invoke) gamma
+
               normalizedGoal            = U.normalize unfreshedGoal
-              normUnifGoal              = normalizeUnif normalizedGoal
-              preAnnotatedGoal          = initGoalAnns terms normUnifGoal
-              stackWithTheGoal          = addToStack stack name terms preAnnotatedGoal
+--              normUnifGoal              = normalizeUnif normalizedGoal
+              preAnnotatedGoal          = initGoalAnns terms normalizedGoal
+
+              resetTerms                = fmap (fmap (fmap (const 0))) <$> terms
+              stackWithTheGoal          = addToStack stack name resetTerms preAnnotatedGoal
               goalStack                 = (preAnnotatedGoal, stackWithTheGoal)
               
               (annotatedGoal, updStack) = annotateInternal name updGamma goalStack
               isInvDef                  = disjStackPred name (concat annotatedGoal, updStack) 
-              updTerms                  = if isInvDef then selfUpdTerms else terms
-              stackTerms                = invokeDirByGoal annotatedGoal terms
+
+              resTerms                  = if isInvDef then selfUpdTerms else terms
+
+              stackTerms                = replaceUndef (Just 1) <$> resetTerms
               updUpdStack               = addToStack updStack name stackTerms annotatedGoal
-           in (Invoke name updTerms, updUpdStack)
+              resStack                  = if isInvDef then updUpdStack else updStack
+           in (Invoke name resTerms, resStack)
 
     annotateConj _                  = error "annotateConj: forbidden goal for conj"
 
@@ -107,20 +113,6 @@ initGoalAnns terms goal =
   let inVars = fmap fst . filter (isJust . snd) . concatMap getVarsT $ terms
    in fmap (fmap (\s -> (s, if s `elem` inVars then Just 0 else Nothing))) <$> goal
 
-
-invokeDirByGoal :: [[G (S, Ann)]] -> [Term (S, Ann)] -> [Term (S, Ann)]
-invokeDirByGoal goal terms
-  = fmap go $ zip ((\(V (_, ann)) -> ann) <$> terms) updTerms
-  where
-    sToAnn   = commonVarAnns . concat $ goal
-    updTerms = fmap (\(s, _) ->
-             maybe (error "updTermAnnByGoal: args was not found") (s,) $ M.lookup s sToAnn) <$> terms
-
-    go :: (Ann, Term (S, Ann)) -> Term (S, Ann)
-    go (_, v@(V (_, Nothing))) = v
-    go (Nothing, V (s, Just _)) = V (s, Just 1)
-    go (Just _, V (s, _)) = V (s, Just 0)
-
 ----------------------------------------------------------------------------------------------------
 
 disjPerm :: [G a] -> [[G a]]
@@ -129,6 +121,13 @@ disjPerm = (\(unifs, invs) -> (unifs ++) <$> permutations invs) . partition isUn
     isUnif :: G a -> Bool
     isUnif (_ :=: _) = True
     isUnif _         = False
+
+----------------------------------------------------------------------------------------------------
+
+replaceUndef :: Ann -> Term (S, Ann) -> Term (S, Ann)
+replaceUndef ann (V (s, Nothing))  = V (s, ann)
+replaceUndef ann v@(V (_, oldAnn)) = v
+replaceUndef ann (C name terms)    = C name . fmap (replaceUndef ann) $ terms
 
 ----------------------------------------------------------------------------------------------------
 
@@ -154,13 +153,6 @@ meetGoals conjs =
 
 meetGoalForOne :: [G (S, Ann)] -> G (S, Ann) -> G (S, Ann)
 meetGoalForOne acc = head . meetGoals . (: acc)
-
-----------------------------------------------------------------------------------------------------
-
-replaceUndef :: Ann -> Term (S, Ann) -> Term (S, Ann)
-replaceUndef ann (V (s, Nothing))  = V (s, ann)
-replaceUndef ann v@(V (_, oldAnn)) = v
-replaceUndef ann (C name terms)    = C name . fmap (replaceUndef ann) $ terms
 
 ----------------------------------------------------------------------------------------------------
 
