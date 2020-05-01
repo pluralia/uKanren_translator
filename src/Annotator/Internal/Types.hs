@@ -5,6 +5,8 @@ module Annotator.Internal.Types (
   , ArgsOrder (..)
   ) where
 
+
+import           Data.Bifunctor        (bimap)
 import qualified Data.Map.Strict  as M
 import           Data.List             (groupBy, sortBy, intercalate, permutations, intersect)
 import qualified Data.Set         as S
@@ -61,13 +63,12 @@ instance Ord ArgsOrder where
 instance Show ArgsOrder where
   show (ArgsOrder anns goal vars) =
        "\n"
-    ++ "( " ++ intercalate "   |   " (printAnns anns) ++ " )\n"
-    ++ "( " ++ intercalate "   |   " (show <$> vars) ++ " )\n"
+    ++ "( " ++ intercalate "   |   " (printVarsAnns vars anns) ++ " )\n"
     ++ printGoal goal
     ++ "\n"
     where
-      printAnns :: [Ann] -> [String]
-      printAnns = fmap (\(x, ann) -> show x ++ ": " ++ maybe "undef" show ann) . zip [0..]
+      printVarsAnns :: [S] -> [Ann] -> [String]
+      printVarsAnns vars = zipWith (\s x -> show s ++ ": " ++ (maybe "undef" show $ x)) vars
 
       printGoal :: [[G (S, Ann)]] -> String
       printGoal = show . foldl1 (|||) . fmap (foldl1 (&&&))
