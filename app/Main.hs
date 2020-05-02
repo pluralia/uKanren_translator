@@ -102,11 +102,22 @@ main = do
 -}
 
   -- duplicate vars in pattern matching
+{-
   putStrLn "=====================================================================================\n\n"
   let appendoProgram = createProgram nameToDef "appendo" ["x", "y", "xy"]
   print appendoProgram
   putStrLn "-------------------------------------------------------------------------------------\n\n"
   let annDefs = preTranslate appendoProgram ["x", "xy"]
+  print annDefs
+  print $ translate annDefs
+  putStrLn "=====================================================================================\n\n"
+-}
+
+  -- duplicate vars in assigns
+  putStrLn "=====================================================================================\n\n"
+  let appendoAssignProgram = createProgram nameToDef "appendoAssign" ["x", "y", "xy"]
+  print appendoAssignProgram
+  let annDefs = preTranslate appendoAssignProgram ["xy"]
   print annDefs
   print $ translate annDefs
   putStrLn "=====================================================================================\n\n"

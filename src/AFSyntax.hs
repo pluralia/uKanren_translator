@@ -1,7 +1,8 @@
 module AFSyntax where
 
 
-import           Data.List (intercalate)
+import           Data.List   (intercalate)
+import           Text.Printf (printf)
 
 
 data Atom = Var String
@@ -24,7 +25,7 @@ newtype Guard = Guard [Atom]
 data Pat = Pat (Maybe String) Atom
   deriving (Eq, Ord)
 
-data Line = Line [Pat] [Guard] [Assign] Expr
+data Line = Line [Pat] [Guard] [Assign] [Guard] Expr
   deriving (Eq, Ord)
 
 
@@ -39,59 +40,64 @@ instance Show Atom where
     where
       ctor2str :: String -> [String] -> String
       ctor2str "Nil"   _      = "[]"
-      ctor2str "Cons"  [x, y] = '(' : x ++ " : " ++ y ++ ")"
+      ctor2str "Cons"  [x, y] = printf "(%s : %s)" x y
 --      ctor2str "O"     _      = "0"
 --      ctor2str "S"     [x]    = '(' : x ++ " + 1)"
       ctor2str "false" []     = show False
       ctor2str "true"  []     = show True
-      ctor2str ctor    args   = '(' : ctor ++ " " ++ unwords args ++ ")"
-  show (Tuple elems)    = '(' : intercalate ", " elems ++ ")"
+      ctor2str ctor    args   = printf "(%s %s)" ctor (unwords args)
+  show (Tuple elems)    = printf "(%s)" (intercalate ", " elems)
 
 
 instance Show Expr where
   show (Term atom)          = show atom
-  show (Call funcName args) = funcName ++ " " ++ unwords (show <$> args)
+  show (Call funcName args) = printf "%s %s" funcName (unwords . fmap show $ args)
 
 
 instance Show Assign where
-  show (Assign name expr@(Term _))   = "let " ++ show name ++ " = " ++ show expr
-  show (Assign name expr@(Call _ _)) = show name ++ " <- " ++ show expr
+  show (Assign name expr@(Term _))   = printf "let %s = %s" (show name) (show expr)
+  show (Assign name expr@(Call _ _)) = printf "%s <- %s" (show name) (show expr)
 
 
 instance Show Guard where
   show (Guard [])       = ""
   show (Guard (x : xs)) =
-    let rvalue = show x ++ " == "
+    let rvalue = printf "%s == " (show x)
      in intercalate ", " . fmap ((rvalue ++) . show) $ xs 
 
 
 instance Show Pat where
   show (Pat Nothing atom)     = show atom
-  show (Pat (Just name) atom) = name ++ "@" ++ show atom
+  show (Pat (Just name) atom) = printf "%s@%s" name (show atom)
 
 
 instance Show Line where
-  show (Line pats guards assigns expr) =
+  show (Line pats patGuards assigns assignGuards expr) =
     (unwords . fmap show $ pats) ++
-    printIfGuard guards ++ " = " ++
+    printIfPatGuard patGuards ++ 
     printIfAssigns assigns ++
-    printExpr expr
+    printIfAssignGuard assignGuards expr
     where
-      printIfGuard :: [Guard] -> String
-      printIfGuard []     = ""
-      printIfGuard guards = " | " ++ (intercalate ", " . fmap show $ guards)
+      printIfPatGuard :: [Guard] -> String
+      printIfPatGuard []     = " = "
+      printIfPatGuard guards = printf " | %s = " (intercalate ", " . fmap show $ guards)
 
       printIfAssigns :: [Assign] -> String
       printIfAssigns []      = ""
-      printIfAssigns assigns = "do\n  " ++ (intercalate "\n  " . fmap show $ assigns) ++ "\n  "
+      printIfAssigns assigns = printf "do\n  %s\n  " (intercalate "\n  " . fmap show $ assigns)
+
+      printIfAssignGuard :: [Guard] -> Expr -> String
+      printIfAssignGuard []     expr = printExpr expr
+      printIfAssignGuard guards expr =
+        printf "if (%s) then %s else []" (intercalate " && ". fmap show $ guards) (printExpr expr)
 
       printExpr :: Expr -> String
-      printExpr expr@(Term _) = "return $ " ++ show expr
+      printExpr expr@(Term _) = printf "return $ %s" (show expr)
       printExpr expr          = show expr
 
 
 instance Show F where
-  show (F funcName [])    = funcName ++ " = undefined\n"
+  show (F funcName [])    = printf "%s = undefined\n" funcName
   show (F funcName lines) = mainFunc ++ subFuncs
     where
       argsNum = getArgsNum lines
@@ -99,20 +105,20 @@ instance Show F where
       
       mainFunc =
         let argsStr = unwords (getNamesByNum "x" argsNum)
-         in funcName ++ " " ++ argsStr ++ " = "
-            ++ (intercalate " ++ " . fmap (++ " " ++ argsStr) $ subFuncsName) ++ "\n"
+         in printf "%s %s = %s\n"
+                   funcName argsStr (intercalate " ++ " . fmap (++ " " ++ argsStr) $ subFuncsName)
 
       subFuncs = unlines (subFuncGen `concatMap` zip subFuncsName (show <$> lines))
 
       subFuncGen :: (String, String) -> [String]
       subFuncGen (name, body) =
-        let skipBody = unwords (replicate argsNum "_") ++ " = []"
+        let skipBody = printf "%s = []" (unwords $ replicate argsNum "_")
          in ((name ++ " ") ++) <$> (body : if (argsNum > 0) then [skipBody] else [])
 
       getNamesByNum :: String -> Int -> [String]
       getNamesByNum name num = ((name ++) . show) <$> [0..num - 1]
       
       getArgsNum :: [Line] -> Int
-      getArgsNum ((Line pats _ _ _) : _) = length pats
-      getArgsNum []                      = error "no lines"
+      getArgsNum ((Line pats _ _ _ _) : _) = length pats
+      getArgsNum []                        = error "no lines"
       

@@ -43,21 +43,40 @@ translateAnnDef (AnnDef name args goal) = F name . fmap (disjToLine args) $ goal
 disjToLine :: [(S, A)] -> [Conj] -> Line
 disjToLine args disj =
   let
-      (inArgs, outArgs)    = bimap (fmap fst) (fmap fst) $ partition ((== 0) . snd) args
-      (dupVarsPats, conjs) = extractPats inArgs disj
-      (patGuards, pats)    = handleDupVars dupVarsPats
+      (inArgs, outArgs) = bimap (fmap fst) (fmap fst) $ partition ((== 0) . snd) args
 
-      (ifGuards, annAssigns) = partitionEithers . fmap conjToGuardOrAssign $ conjs
-      assigns              = fmap snd . sortOn fst $ annAssigns
-      expr                 = Term . Tuple . fmap showS $ outArgs
-   in Line pats patGuards assigns expr 
+      (dupVarsPats, conjs) = extractPats inArgs disj
+      (patGuards, pats)    = handleDupVars 'p' dupVarsPats
+
+      (assignGuardsFir, annAssigns) = partitionEithers . fmap conjToGuardOrAssign $ conjs
+      sortedAssigns                 = fmap snd . sortOn fst $ annAssigns
+      (assignGuardsSec, assigns)    = handleDupVarsInAssigns sortedAssigns
+      assignGuards                  = assignGuardsFir ++ assignGuardsSec
+
+      expr = Term . Tuple . fmap showS $ outArgs
+   in Line pats patGuards assigns assignGuards expr 
 
 -----------------------------------------------------------------------------------------------------
 
-handleDupVars :: [Pat] -> ([Guard], [Pat])
-handleDupVars pats =
+handleDupVarsInAssigns :: [Assign] -> ([Guard], [Assign])
+handleDupVarsInAssigns assigns =
   let
-      newVarsNames              = (('g' :) . show) <$> [0..]
+      (atoms, exprs)    = unzip . fmap (\(Assign atom expr) -> (atom, expr)) $ assigns
+      pats              = (Pat Nothing) <$> atoms
+      (guards, updPats) = handleDupVars 'c' pats
+      updAtoms          = (\(Pat _ atom) -> atom) <$> updPats
+      updAssigns        = zipWith Assign updAtoms exprs
+   in (guards, updAssigns)
+
+
+handleDupVarsInPats :: [Pat] -> ([Guard], [Pat])
+handleDupVarsInPats = handleDupVars 'p'
+
+
+handleDupVars :: Char -> [Pat] -> ([Guard], [Pat])
+handleDupVars symb pats =
+  let
+      newVarsNames              = ((symb :) . show) <$> [0..]
       (updPats, (_, oldToNews)) = foldr rename ([], (newVarsNames, M.empty)) pats
       newToOld                  = M.fromList . fmap (swap . second head) . M.toList $ oldToNews
       updUpdPats                = backFirst newToOld <$> updPats
@@ -75,7 +94,7 @@ handleDupVars pats =
         backFirstAtom :: Atom -> Atom
         backFirstAtom (Var v)          = Var . maybe v id $ M.lookup v newToOld
         backFirstAtom (Ctor name args) = Ctor name . fmap backFirstAtom $ args
-        backFirstAtom (Tuple _)        = error "patsToGuardsAndPats: impossible case"
+        backFirstAtom (Tuple vars)     = Tuple . fmap ((\(Var v) -> v) . backFirstAtom . Var) $ vars
 
 
     rename :: Pat -> 
@@ -90,18 +109,22 @@ handleDupVars pats =
     renameAtom :: Atom ->
                   ([String], M.Map String [String]) ->
                   (Atom, ([String], M.Map String [String]))
-    renameAtom (Var v)       ((n : ns), oldToNews) = (Var n, (ns, M.insertWith (++) v [n] oldToNews))
-    renameAtom (Ctor name args) nsOldToNews        =
+    renameAtom (Var v)          ((n : ns), oldToNews) =
+      (Var n, (ns, M.insertWith (++) v [n] oldToNews))
+    renameAtom (Ctor name args) nsOldToNews           =
       first (Ctor name) .
       foldr (\arg (acc, info) -> (: acc) `first` renameAtom arg info) ([], nsOldToNews) $ args
-    renameAtom (Tuple _)       _                   = error "patsToGuardsAndPats: impossible case"
-
+    renameAtom (Tuple vars)     nsOldToNews           =
+      first (Tuple . fmap (\(Var v) -> v)) .
+      foldr (\arg (acc, info) -> (: acc) `first` renameAtom arg info) ([], nsOldToNews) .
+      fmap Var $ vars
 
 -----------------------------------------------------------------------------------------------------
 
 extractPats :: [S] -> [Conj] -> ([Pat], [Conj])
 extractPats inVars conjs =  
-  let (conjsForPats, conjsForAll) = partition isForPat conjs
+  let
+      (conjsForPats, conjsForAll) = partition isForPat conjs
       (pats, conjsFromPats)       = getPats . toMap $ conjsForPats
    in (pats, conjsFromPats ++ conjsForAll)
   where
@@ -137,10 +160,10 @@ extractPats inVars conjs =
 
 -----------------------------------------------------------------------------------------------------
 
-getMinAnn :: Term (S, A) -> A
-getMinAnn (V (_, a))  = a
-getMinAnn (C _ [])    = 0
-getMinAnn (C _ terms) = minimum $ getMinAnn <$> terms
+getMaxAnn :: Term (S, A) -> A
+getMaxAnn (V (_, a))  = a
+getMaxAnn (C _ [])    = 0
+getMaxAnn (C _ terms) = maximum $ getMaxAnn <$> terms
 
 
 chooseDirection :: [(S, A)] -> ([S], (A, [S]))
@@ -151,9 +174,9 @@ chooseDirection args = bimap (fmap fst) ((maxAnn,) . fmap fst) . partition ((/= 
 
 conjToGuardOrAssign :: Conj -> Either Guard (A, Assign)
 conjToGuardOrAssign (U u1 u2)     =
-  case compare (getMinAnn u1) (getMinAnn u2) of
-    LT -> Right (getMinAnn u2, Assign (termToAtom u2) (Term $ termToAtom u1))
-    GT -> Right (getMinAnn u1, Assign (termToAtom u1) (Term $ termToAtom u2))
+  case compare (getMaxAnn u1) (getMaxAnn u2) of
+    LT -> Right (getMaxAnn u2, Assign (termToAtom u2) (Term $ termToAtom u1))
+    GT -> Right (getMaxAnn u1, Assign (termToAtom u1) (Term $ termToAtom u2))
     EQ -> Left . Guard . fmap termToAtom $ [u1, u2]
 conjToGuardOrAssign (I name args) =
   let (inArgs, (ann, outArgs)) = chooseDirection args
