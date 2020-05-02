@@ -87,8 +87,8 @@ annotateInternal mainName gamma@(defByName, (_, xToTs), _) = annotateGoal
               (unfreshedGoal, updGamma) = U.oneStepUnfold (fst <$> invoke) gamma
 
               normalizedGoal            = U.normalize unfreshedGoal
---              normUnifGoal              = normalizeUnif normalizedGoal
-              preAnnotatedGoal          = initGoalAnns terms normalizedGoal
+              normUnifGoal              = normalizeUnif normalizedGoal
+              preAnnotatedGoal          = initGoalAnns terms normUnifGoal
 
               resetTerms                = fmap (fmap (fmap (const 0))) <$> terms
               stackWithTheGoal          = addToStack stack name resetTerms preAnnotatedGoal
