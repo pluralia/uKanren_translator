@@ -54,7 +54,7 @@ disjStackPred name (list, stD) = isNoUndef && isAllInvDef
 ----------------------------------------------------------------------------------------------------
 
 addToStack :: Stack -> Name -> [Term (S, Ann)] -> [[G (S, Ann)]] -> Stack
-addToStack stack name terms goal = trace ("addToStack: " ++ name ++ " | " ++ show terms ++ " | " ++ show (argsOrder terms goal)) $
+addToStack stack name terms goal = {- trace ("addToStack: " ++ name ++ " | " ++ show terms ++ " | " ++ show (argsOrder terms goal)) $ -}
   let
       argsOrderSet    = fromMaybe S.empty $ M.lookup name stack
       updArgsOrderSet = S.insert (argsOrder terms goal) argsOrderSet

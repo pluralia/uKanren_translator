@@ -6,6 +6,7 @@ module Annotator.Internal.Normalization (
 
 
 import           Data.Bifunctor        (first, second, bimap)
+import           Data.Foldable         (foldl')
 import qualified Data.Map.Strict  as M
 import           Data.List             (intercalate)
 import qualified Data.Set         as S
@@ -33,29 +34,68 @@ normalizeUnif = fmap (concatMap go)
 ----------------------------------------------------------------------------------------------------
 
 normalizeInvokes :: Program -> Program
-normalizeInvokes (Program scope goal) =
+normalizeInvokes = fixPoint normalizeInvokesInternal 
+
+
+normalizeInvokesInternal :: Program -> Program
+normalizeInvokesInternal (Program scope goal) =
   let
-      gamma0          = E.updateDefsInGamma E.env0 scope
-      replaceInvokePA = replaceInvoke gamma0 (M.fromList $ (\(Def name _ _) -> (name, 0)) <$> scope)
-      (specToName, (updGoal, goalDefs)) = replaceInvokePA M.empty goal
-      (x, (replacedScope, scopeDefs))   = 
+      gamma0         = E.updateDefsInGamma E.env0 scope
+      replaceInvokeG = replaceInvoke gamma0
+      initInvInfo    = (M.fromList . fmap (\(Def name _ _) -> (name, 0)) $ scope, M.empty)
+      (invInfo, (updGoal, goalDefs))  = replaceInvokeG initInvInfo goal
+      (_, (replacedScope, scopeDefs)) = 
         foldr
           (\(Def n as goal) (sTN, (acc, defs)) ->
-              second (bimap ((: acc) . (Def n as)) (++ defs)) $ replaceInvokePA sTN goal)
-          (specToName, ([], []))
+              second (bimap ((: acc) . (Def n as)) (++ defs)) $ replaceInvokeG sTN goal)
+          (invInfo, ([], []))
           scope
       updScope = removeRepeatingDefs $ goalDefs ++ scopeDefs ++ replacedScope
    in Program updScope updGoal
-
-
-removeRepeatingDefs :: [Def] -> [Def]
-removeRepeatingDefs = mapToDefList . defListToMap
   where
-    defListToMap = M.fromList . fmap (\(Def name args goal) -> ((name, args), goal)) 
-    mapToDefList = fmap (\((name, args), goal) -> Def name args goal) . M.toList
+    removeRepeatingDefs :: [Def] -> [Def]
+    removeRepeatingDefs = 
+      let
+          defListToMap = M.fromList . fmap (\(Def name args goal) -> ((name, args), goal)) 
+          mapToDefList = fmap (\((name, args), goal) -> Def name args goal) . M.toList
+       in mapToDefList . defListToMap
+
+
+replaceInvoke :: E.Gamma ->
+                 (M.Map Name Int, M.Map Name Name)->
+                 G X ->
+                 ((M.Map Name Int, M.Map Name Name), (G X, [Def]))
+replaceInvoke gamma0 = go
+  where
+    go :: (M.Map Name Int, M.Map Name Name) -> G X ->
+          ((M.Map Name Int, M.Map Name Name), (G X, [Def]))
+    go invInfo unif@(_ :=: _)          = (invInfo, (unif, []))
+    go invInfo (goal1 :/\: goal2)      =
+      let (invInfo1, (updG1, defs1)) = go invInfo  goal1
+          (invInfo2, (updG2, defs2)) = go invInfo1 goal2
+       in (invInfo2, (updG1 :/\: updG2, defs1 ++ defs2))
+    go invInfo (goal1 :\/: goal2)      =
+      let (invInfo1, (updG1, defs1)) = go invInfo  goal1
+          (invInfo2, (updG2, defs2)) = go invInfo1 goal2
+       in (invInfo2, (updG1 :\/: updG2, defs1 ++ defs2))
+    go invInfo (Fresh name goal) = second (first (Fresh name)) $ go invInfo goal
+    go invInfo inv@(Invoke name terms) 
+      | all isVar terms = (invInfo, (inv, []))
+      | otherwise       =
+      let (def@(Def newName _ _), updInvInfo) = unfoldInvoke gamma0 invInfo (name, invokeSpec terms)
+       in (updInvInfo, (Invoke newName (V <$> getVarsT `concatMap` terms), [def]))
 
 
 invokeSpec :: (Ord a, Show a) => [Term a] -> [Term X]
+invokeSpec terms = (\(_, C _ updTerms) -> updTerms) $ go (show <$> [0..]) (C "" terms)
+  where
+    go :: (Ord a, Show a) => [X] -> Term a -> ([X], Term X)
+    go (x : xs) (V _)          = (xs, V x)
+    go names    (C name terms) =
+      second (C name) .
+      foldl' (\(xs, ts) t -> ((ts ++) . (:[])) `second` go xs t) (names, []) $ terms
+
+{-
 invokeSpec terms = (\(C _ updTerms, _) -> updTerms) $ go (0, M.empty) (C "" terms)
   where
     go :: (Ord a, Show a) => (Int, M.Map a Int) -> Term a -> (Term X, (Int, M.Map a Int))
@@ -64,32 +104,9 @@ invokeSpec terms = (\(C _ updTerms, _) -> updTerms) $ go (0, M.empty) (C "" term
           retIfNothing = (intToVar n, (succ n, M.insert var n varToName))
        in maybe retIfNothing ((, mapInfo) . intToVar) $ M.lookup var varToName
     go mapInfo (C name terms) =
-      let res = foldr (\x (acc, mI) -> (: acc) `first` go mI x) ([], mapInfo) $ terms
-       in C name `first` res
-
-
-replaceInvoke :: E.Gamma -> M.Map Name Int -> M.Map Name Name -> G X -> (M.Map Name Name, (G X, [Def]))
-replaceInvoke gamma0 fNameToNum = go
-  where
-    go :: M.Map Name Name -> G X -> (M.Map Name Name, (G X, [Def]))
-    go specToName unif@(_ :=: _)          = (specToName, (unif, []))
-    go specToName (goal1 :/\: goal2)      =
-      let (specToName1, (updG1, defs1)) = go specToName  goal1
-          (specToName2, (updG2, defs2)) = go specToName1 goal2
-       in (specToName2, (updG1 :/\: updG2, defs1 ++ defs2))
-    go specToName (goal1 :\/: goal2)      =
-      let (specToName1, (updG1, defs1)) = go specToName  goal1
-          (specToName2, (updG2, defs2)) = go specToName1 goal2
-       in (specToName2, (updG1 :\/: updG2, defs1 ++ defs2))
-    go specToName (Fresh name goal) = second (first (Fresh name)) $ go specToName goal
-    go specToName inv@(Invoke name terms) 
-      | all isVar terms = (specToName, (inv, []))
-      | otherwise       =
-      let (def@(Def newName _ _), (_, updSpecToName)) =
-            unfoldInvoke gamma0 (fNameToNum, specToName) (name, invokeSpec terms)
-       in (updSpecToName, (Invoke newName (V <$> getVarsT `concatMap` terms), [def]))
-    go _          (Let _ _)               = error "extractInvokes: Let"
-
+      first (C name) .
+      foldl' (\(acc, mI) x -> ((acc ++) . (:[])) `first` go mI x) ([], mapInfo) $ terms
+-}
 
 -- (source func name TO number of additional funcs, func spec TO name of additional func) ->
 -- (func name, terms with replaced var names)
@@ -98,14 +115,15 @@ unfoldInvoke :: E.Gamma ->
                 (Name, [Term X]) ->
                 (Def, (M.Map Name Int, M.Map Name Name))
 unfoldInvoke (defByName, _, _) invInfo@(fNameToNum, specToName) (name, terms) =
+  trace ("TERMS: " ++ (show terms)) $
   let
       num           = maybe (error "unfoldInvokes: undef invoke") id $ M.lookup name fNameToNum
-      newName       = name ++ (show num)
+      newName       = name ++ (show num) ++ "ext"
 
-      argsNames     = S.toList . S.fromList $ getVarsT `concatMap` terms
+      argsNames     = {- S.toList . S.fromList . -} concatMap getVarsT $ terms
 
       (Def _ sourceArgs sourceGoal) = defByName name
-      unfoldedGoal = renameGX (M.fromList $ zip sourceArgs terms) sourceGoal
+      unfoldedGoal                  = renameGX (M.fromList $ zip sourceArgs terms) sourceGoal
 
       def           = Def newName argsNames unfoldedGoal
 
@@ -114,7 +132,7 @@ unfoldInvoke (defByName, _, _) invInfo@(fNameToNum, specToName) (name, terms) =
       updSpecToName = M.insert spec newName specToName
 
       retIfNothing  = (def, (updFNameToNum, updSpecToName)) 
-   in maybe retIfNothing (error "unfoldInvoke: don't need to unfold") $ M.lookup spec specToName
+   in maybe retIfNothing (trace ("SPEC: " ++ (show spec)) $ error "unfoldInvoke: don't need to unfold") $ M.lookup spec specToName
 
 
 renameGX :: M.Map X (Term X) -> G X -> G X
@@ -124,14 +142,14 @@ renameGX oldToNew = go
     getUpd x = maybe (V x) id $ M.lookup x oldToNew
 
     renameTX :: Term X -> Term X
-    renameTX (V x) = getUpd x
+    renameTX (V x)          = getUpd x
     renameTX (C name terms) = C name (renameTX <$> terms)
 
     go :: G X -> G X
-    go (term1 :=: term2)  = renameTX term1 :=: renameTX term2
-    go (goal1 :/\: goal2) = go goal1 :/\: go goal2
-    go (goal1 :\/: goal2) = go goal1 :\/: go goal2
-    go (Fresh name goal) = Fresh name $ go goal
+    go (term1 :=: term2)   = renameTX term1 :=: renameTX term2
+    go (goal1 :/\: goal2)  = go goal1 :/\: go goal2
+    go (goal1 :\/: goal2)  = go goal1 :\/: go goal2
+    go (Fresh name goal)   = Fresh name $ go goal
     go (Invoke name terms) = Invoke name $ renameTX <$> terms
 
 ----------------------------------------------------------------------------------------------------

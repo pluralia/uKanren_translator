@@ -22,10 +22,6 @@ initDefsByNames inFileNames = do
   return . M.fromList . fmap (\def@(Def name _ _) -> (name, def)) . concat $ listListDefs
 
 -----------------------------------------------------------------------------------------------------
-{-
-instance Show Program where
-  show (Program defs goal) = unlines ["Program:", show goal, show defs]
--}
 
 createProgram :: M.Map Name Def -> Name -> [Name] -> Program
 createProgram nameToDef name args =

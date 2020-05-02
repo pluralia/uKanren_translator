@@ -63,6 +63,7 @@ main = do
 {-
   let annDefs2 = preTranslate reversoUnifProgram ["y"]
   print annDefs2
+--  doesn't work because of additional unification
 --  print $ translate annDefs2
 -}
   putStrLn "=====================================================================================\n\n"
@@ -75,11 +76,12 @@ main = do
   putStrLn "-------------------------------------------------------------------------------------\n\n"
   let annDefs1 = preTranslate reversoUnifRevProgram ["x"]
   print annDefs1
---  print $ translate annDefs1
+  print $ translate annDefs1
   putStrLn "-------------------------------------------------------------------------------------\n\n"
 {-
   let annDefs2 = preTranslate reversoUnifRevProgram ["y"]
   print annDefs2
+--  doesn't work because of additional unification
 --  print $ translate annDefs2
 -}
   putStrLn "=====================================================================================\n\n"
@@ -114,6 +116,7 @@ main = do
 -}
 
   -- duplicate vars in assigns
+{-
   putStrLn "=====================================================================================\n\n"
   let appendoAssignProgram = createProgram nameToDef "appendoAssign" ["x", "y", "xy"]
   print appendoAssignProgram
@@ -121,13 +124,77 @@ main = do
   print annDefs
   print $ translate annDefs
   putStrLn "=====================================================================================\n\n"
+-}
 
+  -- non-recursive invokes with ctors
+{-
+  putStrLn "=====================================================================================\n\n"
+  let reversoProgram = createProgram nameToDef "reverso" ["x", "y"]
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print reversoProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  let annDefs1 = preTranslate reversoProgram ["x"]
+  print annDefs1
+  print $ translate annDefs1
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  let annDefs2 = preTranslate reversoProgram ["y"]
+  print annDefs2
+  print $ translate annDefs2
+  putStrLn "=====================================================================================\n\n"
+-}
+{-
+  putStrLn "=====================================================================================\n\n"
+  let zeroAppendoProgram = createProgram nameToDef "zeroAppendo" ["x", "y", "xy"]
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print zeroAppendoProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  let annDefs1 = preTranslate zeroAppendoProgram ["xy"]
+  print annDefs1
+  print $ translate annDefs1
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  let annDefs2 = preTranslate zeroAppendoProgram ["x", "y"]
+  print annDefs2
+  print $ translate annDefs2
+  putStrLn "=====================================================================================\n\n"
+-}
+
+  putStrLn "=====================================================================================\n\n"
+  let doubleZeroAppendoProgram = createProgram nameToDef "doubleZeroAppendo" ["x", "y", "xy"]
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  print doubleZeroAppendoProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  let annDefs1 = preTranslate doubleZeroAppendoProgram ["x", "y"]
+  print annDefs1
+  print $ translate annDefs1
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  let annDefs2 = preTranslate doubleZeroAppendoProgram ["xy"]
+  print annDefs2
+  print $ translate annDefs2
+  putStrLn "=====================================================================================\n\n"
 
 ------------------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------------------
+
+  -- recursive invokes with ctors
+{-
+  putStrLn "=====================================================================================\n\n"
+  let maxLengthoProgram = createProgram nameToDef "maxLengtho" ["x", "m", "l"]
+  print maxLengthoProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  let annDefs1 = preTranslate maxLengthoProgram ["x", "m"]
+  print annDefs1
+  print $ translate annDefs1
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+{-
+  let annDefs2 = preTranslate maxLengthoProgram ["l"]
+  print annDefs2
+  print $ translate annDefs2
+-}
+  putStrLn "=====================================================================================\n\n"
+-}
 
 
 
@@ -160,7 +227,23 @@ main = do
   print $ translate annDefs
   putStrLn "=====================================================================================\n\n"
 -}
-
+{-
+  putStrLn "=====================================================================================\n\n"
+  let lengthoProgram = createProgram nameToDef "lengtho" ["x", "l"]
+  print lengthoProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  let annDefs1 = preTranslate lengthoProgram ["x"]
+  print annDefs1
+  print $ translate annDefs1
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+--  doesn't work because lack of generation
+{-
+  let annDefs2 = preTranslate lengthoProgram ["l"]
+  print annDefs2
+  print $ translate annDefs2
+-}
+  putStrLn "=====================================================================================\n\n"
+-}
 
 
 
@@ -217,18 +300,6 @@ main = do
 -}
 
 
-{-
-  putStrLn "=====================================================================================\n\n"
-  let reversoProgram = createProgram nameToDef "reverso" ["x", "y"]
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print reversoProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ preTranslate reversoProgram ["x"]
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
---  print $ preTranslate reversoProgram ["y"]
-  putStrLn "=====================================================================================\n\n"
--}
-
 
 
 
@@ -246,27 +317,7 @@ main = do
   putStrLn "=====================================================================================\n\n"
 -}
 
-{-
-  putStrLn "=====================================================================================\n\n"
-  let lengthoProgram = createProgram nameToDef "lengtho" ["x", "l"]
-  print lengthoProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ translate lengthoProgram [("x", In)]
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ translate lengthoProgram [("l", In)]
-  putStrLn "=====================================================================================\n\n"
--}
 
-{-
-  putStrLn "=====================================================================================\n\n"
-  let maxLengthoProgram = createProgram nameToDef "maxLengtho" ["x", "m", "l"]
-  print maxLengthoProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ translate maxLengthoProgram [("x", In), ("m", In)]
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
---  print $ translate maxLengthoProgram [("l", In)]
-  putStrLn "=====================================================================================\n\n"
--}
 
 {-
   putStrLn "=====================================================================================\n\n"

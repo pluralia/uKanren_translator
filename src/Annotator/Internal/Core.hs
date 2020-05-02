@@ -60,13 +60,13 @@ annotateInternal mainName gamma@(defByName, (_, xToTs), _) = annotateGoal
     
     annotateConj invokeStack@(invoke@(Invoke name terms), stack)
       | any (not . isVar) terms = error "updTermAnnsByGoal: invoke argument is ctor"
-      | isSkippable  = trace (unlines ["skippable"])  invokeStack
-      | checkInStack = trace (unlines ["inStack"])    (Invoke name selfUpdTerms, stack)
-      | otherwise    = trace (unlines ["notInStack"]) annotateInvoke
+      | isSkippable  = {- trace (unlines ["skippable"])  -} invokeStack
+      | checkInStack = {- trace (unlines ["inStack"])    -} (Invoke name selfUpdTerms, stack)
+      | otherwise    = {- trace (unlines ["notInStack"]) -} annotateInvoke
       where
         -- if all terms are undefined or annotated -- skip it
         isSkippable :: Bool
-        isSkippable = trace ("INVOKE: " ++ show invokeStack) $
+        isSkippable = {- trace ("INVOKE: " ++ show invokeStack) $ -}
           (all (isNothing . maxAnn) $ terms) || isJust (maxAnn $ C undefined terms)
 
         -- in stack
@@ -82,7 +82,7 @@ annotateInternal mainName gamma@(defByName, (_, xToTs), _) = annotateGoal
 
         -- not in stack
         annotateInvoke :: (G (S, Ann), Stack)
-        annotateInvoke = trace (mainName ++ ": unfoldName") $ 
+        annotateInvoke =
           let
               (unfreshedGoal, updGamma) = U.oneStepUnfold (fst <$> invoke) gamma
 

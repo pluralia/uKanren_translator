@@ -26,11 +26,12 @@ import           Debug.Trace           (trace)
 --preTranslate :: Program -> [X] -> [AnnDef]
 preTranslate program inX =
   let
-      (Program scope goal)  = {- normalizeInvokes $ normalizeInvokes -} program
-      gamma                 = E.updateDefsInGamma E.env0 scope
+      (Program scope goal)  = normalizeInvokes program
+      gamma                 = trace ("SCOPE: " ++ (show scope)) $ E.updateDefsInGamma E.env0 scope
       (initGamma, initGoal) = initTranslation gamma goal inX
       (_, stack)            = annotate initGamma initGoal
-   in makeStackBeauty . maybe (error "FAILED STACK") id . maybeStack $ stack
+   in trace ("STACK: " ++ show stack) $
+        makeStackBeauty . maybe (error "FAILED STACK") id . maybeStack $ stack
 
 ----------------------------------------------------------------------------------------------------
 
