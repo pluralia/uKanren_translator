@@ -4,11 +4,12 @@ module Translator (
     translate
   ) where
 
-import           Data.Either (partitionEithers)
-import           Data.Bifunctor (bimap, first, second)
-import           Data.List (partition, sortOn, groupBy)
+import           Data.Either          (partitionEithers)
+import           Data.Bifunctor       (bimap, first, second)
+import           Data.Foldable        (foldl')
+import           Data.List            (partition, sortOn, groupBy)
 import qualified Data.Map.Strict as M
-import           Data.Tuple (swap)
+import           Data.Tuple           (swap)
 
 import           Embed (Instance (..))
 import           Syntax
@@ -43,11 +44,58 @@ disjToLine :: [(S, A)] -> [Conj] -> Line
 disjToLine args disj =
   let
       (inArgs, outArgs)    = bimap (fmap fst) (fmap fst) $ partition ((== 0) . snd) args
-      (pats, conjs)        = extractPats inArgs disj
-      (guards, annAssigns) = partitionEithers . fmap conjToGuardOrAssign $ conjs
+      (dupVarsPats, conjs) = extractPats inArgs disj
+      (patGuards, pats)    = handleDupVars dupVarsPats
+
+      (ifGuards, annAssigns) = partitionEithers . fmap conjToGuardOrAssign $ conjs
       assigns              = fmap snd . sortOn fst $ annAssigns
       expr                 = Term . Tuple . fmap showS $ outArgs
-   in Line pats guards assigns expr 
+   in Line pats patGuards assigns expr 
+
+-----------------------------------------------------------------------------------------------------
+
+handleDupVars :: [Pat] -> ([Guard], [Pat])
+handleDupVars pats =
+  let
+      newVarsNames              = (('g' :) . show) <$> [0..]
+      (updPats, (_, oldToNews)) = foldr rename ([], (newVarsNames, M.empty)) pats
+      newToOld                  = M.fromList . fmap (swap . second head) . M.toList $ oldToNews
+      updUpdPats                = backFirst newToOld <$> updPats
+      listForGuards             = M.toList . M.filter (not . null . tail) $ oldToNews
+      guards                    = (Guard . fmap Var . (\(v, _ : vs) -> v : vs)) <$> listForGuards
+   in (guards, updUpdPats) 
+  where
+    backFirst :: M.Map String String -> Pat -> Pat
+    backFirst newToOld = go
+      where
+        go :: Pat -> Pat
+        go (Pat Nothing atom)  = Pat Nothing . backFirstAtom $ atom
+        go (Pat (Just v) atom) = Pat (Just . maybe v id $ M.lookup v newToOld) . backFirstAtom $ atom
+    
+        backFirstAtom :: Atom -> Atom
+        backFirstAtom (Var v)          = Var . maybe v id $ M.lookup v newToOld
+        backFirstAtom (Ctor name args) = Ctor name . fmap backFirstAtom $ args
+        backFirstAtom (Tuple _)        = error "patsToGuardsAndPats: impossible case"
+
+
+    rename :: Pat -> 
+              ([Pat], ([String], M.Map String [String])) ->
+              ([Pat], ([String], M.Map String [String]))
+    rename (Pat Nothing atom)  (pats, nsOldToNews) =
+      ((: pats) . Pat Nothing) `first` renameAtom atom nsOldToNews
+    rename (Pat (Just v) atom) (pats, ((n : ns), oldToNew)) =
+      ((: pats) . Pat (Just n)) `first` renameAtom atom (ns, M.insertWith (++) v [n] oldToNew)
+
+
+    renameAtom :: Atom ->
+                  ([String], M.Map String [String]) ->
+                  (Atom, ([String], M.Map String [String]))
+    renameAtom (Var v)       ((n : ns), oldToNews) = (Var n, (ns, M.insertWith (++) v [n] oldToNews))
+    renameAtom (Ctor name args) nsOldToNews        =
+      first (Ctor name) .
+      foldr (\arg (acc, info) -> (: acc) `first` renameAtom arg info) ([], nsOldToNews) $ args
+    renameAtom (Tuple _)       _                   = error "patsToGuardsAndPats: impossible case"
+
 
 -----------------------------------------------------------------------------------------------------
 

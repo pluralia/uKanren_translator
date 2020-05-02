@@ -17,8 +17,8 @@ main = do
       inFileNames = (inDirName ++) <$> ["list", "num", "bool", "programs", "extra"]
   nameToDef <- initDefsByNames inFileNames
 
-{-
   -- simple case
+{-
   putStrLn "=====================================================================================\n\n"
   let appendoProgram = createProgram nameToDef "appendo" ["x", "y", "xy"]
   print appendoProgram
@@ -33,8 +33,8 @@ main = do
   putStrLn "=====================================================================================\n\n"
 -}
 
-{-
   -- some unifications of IN var
+{-
   putStrLn "=====================================================================================\n\n"
   let appendoPatProgram = createProgram nameToDef "appendoPat" ["x", "y", "xy"]
   print appendoPatProgram
@@ -86,6 +86,7 @@ main = do
 -}
 
   -- ctor-ctor unification
+{-
   putStrLn "=====================================================================================\n\n"
   let appendoCtorsUnifProgram = createProgram nameToDef "appendoCtorsUnif" ["x", "y", "xy"]
   print appendoCtorsUnifProgram
@@ -97,6 +98,17 @@ main = do
   let annDefs2 = preTranslate appendoCtorsUnifProgram ["xy"]
   print annDefs2
   print $ translate annDefs2
+  putStrLn "=====================================================================================\n\n"
+-}
+
+  -- duplicate vars in pattern matching
+  putStrLn "=====================================================================================\n\n"
+  let appendoProgram = createProgram nameToDef "appendo" ["x", "y", "xy"]
+  print appendoProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  let annDefs = preTranslate appendoProgram ["x", "xy"]
+  print annDefs
+  print $ translate annDefs
   putStrLn "=====================================================================================\n\n"
 
 
