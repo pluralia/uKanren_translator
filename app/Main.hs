@@ -158,16 +158,17 @@ main = do
   putStrLn "=====================================================================================\n\n"
 -}
 
+  -- duplicate vars in invokes
   putStrLn "=====================================================================================\n\n"
-  let doubleZeroAppendoProgram = createProgram nameToDef "doubleZeroAppendo" ["x", "y", "xy"]
+  let doubleAppendoProgram = createProgram nameToDef "doubleAppendo" ["x", "xy"]
   putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print doubleZeroAppendoProgram
+  print doubleAppendoProgram
   putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs1 = preTranslate doubleZeroAppendoProgram ["x", "y"]
+  let annDefs1 = preTranslate doubleAppendoProgram ["x"]
   print annDefs1
   print $ translate annDefs1
   putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs2 = preTranslate doubleZeroAppendoProgram ["xy"]
+  let annDefs2 = preTranslate doubleAppendoProgram ["xy"]
   print annDefs2
   print $ translate annDefs2
   putStrLn "=====================================================================================\n\n"
