@@ -159,6 +159,7 @@ main = do
 -}
 
   -- duplicate vars in invokes
+{-
   putStrLn "=====================================================================================\n\n"
   let doubleAppendoProgram = createProgram nameToDef "doubleAppendo" ["x", "xy"]
   putStrLn "-------------------------------------------------------------------------------------\n\n"
@@ -171,6 +172,31 @@ main = do
   let annDefs2 = preTranslate doubleAppendoProgram ["xy"]
   print annDefs2
   print $ translate annDefs2
+  putStrLn "=====================================================================================\n\n"
+-}
+
+  -- generation
+{-
+  putStrLn "=====================================================================================\n\n"
+  let lengthoProgram = createProgram nameToDef "lengtho" ["x", "l"]
+  print lengthoProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  let annDefs1 = preTranslate lengthoProgram ["l"]
+  print annDefs1
+  print $ translate annDefs1
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  let annDefs2 = preTranslate lengthoProgram ["x"]
+  print annDefs2
+  print $ translate annDefs2
+  putStrLn "=====================================================================================\n\n"
+-}
+  putStrLn "=====================================================================================\n\n"
+  let appendoProgram = createProgram nameToDef "appendo" ["x", "y", "xy"]
+  print appendoProgram
+  putStrLn "-------------------------------------------------------------------------------------\n\n"
+  let annDefs = preTranslate appendoProgram ["y"]
+  print annDefs
+  print $ translate annDefs
   putStrLn "=====================================================================================\n\n"
 
 ------------------------------------------------------------------------------------------------------
@@ -210,51 +236,6 @@ main = do
 --  print $ translate annDefs
   putStrLn "=====================================================================================\n\n"
 -}
-
-
-
-
-
-
-
-
-
-{-
-  -- check gen
-  putStrLn "=====================================================================================\n\n"
-  let appendoGenProgram = createProgram nameToDef "appendoGen" ["x", "y", "xy"]
-  let annDefs = preTranslate appendoGenProgram ["y"]
-  print annDefs
-  print $ translate annDefs
-  putStrLn "=====================================================================================\n\n"
--}
-{-
-  putStrLn "=====================================================================================\n\n"
-  let lengthoProgram = createProgram nameToDef "lengtho" ["x", "l"]
-  print lengthoProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs1 = preTranslate lengthoProgram ["x"]
-  print annDefs1
-  print $ translate annDefs1
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
---  doesn't work because lack of generation
-{-
-  let annDefs2 = preTranslate lengthoProgram ["l"]
-  print annDefs2
-  print $ translate annDefs2
--}
-  putStrLn "=====================================================================================\n\n"
--}
-
-
-
-
-
-
-
-
-
-
 
 
 

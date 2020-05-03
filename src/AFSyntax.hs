@@ -55,8 +55,9 @@ instance Show Expr where
 
 
 instance Show Assign where
-  show (Assign name expr@(Term _))   = printf "let %s = %s" (show name) (show expr)
-  show (Assign name expr@(Call _ _)) = printf "%s <- %s" (show name) (show expr)
+  show (Assign name expr@(Term (Ctor ctorName _)))
+    | ctorName /= "gen"  = printf "let %s = %s" (show name) (show expr)
+  show (Assign name expr) = printf "%s <- %s" (show name) (show expr)
 
 
 instance Show Guard where

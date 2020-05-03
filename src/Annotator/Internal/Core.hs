@@ -1,6 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 module Annotator.Internal.Core (
     annotate
+  , annotateInternal
   ) where
 
 
@@ -101,7 +102,7 @@ annotateInternal mainName gamma@(defByName, (_, xToTs), _) = annotateGoal
 
               stackTerms                = replaceUndef (Just 1) <$> resetTerms
               updUpdStack               = addToStack updStack name stackTerms annotatedGoal
-              resStack                  = if isInvDef then updUpdStack else updStack
+              resStack                  = updUpdStack -- if isInvDef then updUpdStack else updStack
            in (Invoke name resTerms, resStack)
 
     annotateConj _                  = error "annotateConj: forbidden goal for conj"

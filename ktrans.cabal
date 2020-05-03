@@ -24,6 +24,8 @@ library
     , Annotator.Main
     , Annotator.Types
     , Init
+    , Lib.Generator
+    , Lib.Peano
     , Parser
     , Translator
   other-modules:

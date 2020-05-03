@@ -1,6 +1,7 @@
 {-# LANGUAGE TupleSections #-}
 module Annotator.Internal.Stack (
     addToStack
+  , argsOrderPred
   , disjStackPred
   , maybeStack
   ) where
