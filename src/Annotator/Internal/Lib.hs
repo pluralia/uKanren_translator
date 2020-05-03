@@ -1,9 +1,14 @@
 module Annotator.Internal.Lib where
 
-import           Data.List (nub)
+import           Data.List             (nub)
+import           Data.Maybe            (fromMaybe)
+import qualified Data.Map.Strict  as M
+import qualified Data.Set         as S
+
 import           Syntax
 
 import           Annotator.Internal.Types
+import           Annotator.Types
 
 ----------------------------------------------------------------------------------------------------
 
@@ -14,6 +19,23 @@ fixPoint handler = fixPoint'
       let input1 = handler input
           input2 = handler input1
        in if input1 == input2 then input1 else fixPoint' input2
+
+----------------------------------------------------------------------------------------------------
+
+makeStackBeauty :: Stack -> [AnnDef]
+makeStackBeauty = concatMap (\(name, aoSet) -> fmap (toAnnDef name) . S.toList $ aoSet) . M.toList
+  where
+    goalToConj :: G (S, Word) -> Conj
+    goalToConj (u1 :=: u2)         = U u1 u2
+    goalToConj (Invoke name terms) = I name . fmap (\(V v) -> v) $ terms
+
+    toAnnDef :: Name -> ArgsOrder -> AnnDef
+    toAnnDef name (ArgsOrder anns goal vars) =
+      let
+          fromMb  = fromMaybe (error "makeStackBeauty: UNDEF ANNOTATION")
+          args    = zip vars (fromMb <$> anns)
+          resGoal = fmap (goalToConj . fmap (fmap fromMb)) <$> goal
+       in AnnDef name args resGoal
 
 ----------------------------------------------------------------------------------------------------
 
