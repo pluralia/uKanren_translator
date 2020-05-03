@@ -11,7 +11,7 @@ import           Data.List            (partition, sortOn, groupBy)
 import qualified Data.Map.Strict as M
 import           Data.Tuple           (swap)
 
-import           Embed (Instance (..))
+import           Embed                (Instance (..))
 import           Syntax
 
 import           AFSyntax
@@ -31,12 +31,14 @@ termToAtom (C name terms) = Ctor name . fmap termToAtom $ terms
 
 -----------------------------------------------------------------------------------------------------
 
-translate :: [AnnDef] -> [F]
-translate = fmap translateAnnDef
+translate :: [AnnDef] -> HsProgram
+translate = HsProgram . fmap translateAnnDef
 
 
 translateAnnDef :: AnnDef -> F
-translateAnnDef (AnnDef name args goal) = F name . fmap (disjToLine args) $ goal
+translateAnnDef (AnnDef name args goal) =
+  let newName = (name ++) . concatMap (\a -> if a == 0 then "I" else "O") . snd . unzip $ args
+   in F newName . fmap (disjToLine args) $ goal
 
 -----------------------------------------------------------------------------------------------------
 
@@ -166,10 +168,12 @@ getMaxAnn (C _ [])    = 0
 getMaxAnn (C _ terms) = maximum $ getMaxAnn <$> terms
 
 
-chooseDirection :: [(S, A)] -> ([S], (A, [S]))
-chooseDirection args = bimap (fmap fst) ((maxAnn,) . fmap fst) . partition ((/= maxAnn) . snd) $ args
-  where
-    maxAnn = maximum . fmap snd $ args
+chooseDirection :: [(S, A)] -> (([S], (A, [S])), String)
+chooseDirection args =
+  let
+    maxAnn    = maximum . fmap snd $ args
+    direction = concatMap (\a -> if a == maxAnn then "O" else "I") . snd . unzip $ args
+   in (bimap (fmap fst) ((maxAnn,) . fmap fst) . partition ((/= maxAnn) . snd) $ args, direction)
 
 
 conjToGuardOrAssign :: Conj -> Either Guard (A, Assign)
@@ -179,8 +183,9 @@ conjToGuardOrAssign (U u1 u2)     =
     GT -> Right (getMaxAnn u1, Assign (termToAtom u1) (Term $ termToAtom u2))
     EQ -> Left . Guard . fmap termToAtom $ [u1, u2]
 conjToGuardOrAssign (I name args) =
-  let (inArgs, (ann, outArgs)) = chooseDirection args
-   in Right (ann, Assign (Tuple . fmap showS $ outArgs) (Call name . fmap (Var . showS) $ inArgs))
+  let ((inArgs, (ann, outArgs)), direction) = chooseDirection args
+      newName                             = name ++ direction
+   in Right (ann, Assign (Tuple . fmap showS $ outArgs) (Call newName . fmap (Var . showS) $ inArgs))
 
 -----------------------------------------------------------------------------------------------------
 

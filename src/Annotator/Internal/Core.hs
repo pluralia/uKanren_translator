@@ -96,9 +96,9 @@ annotateInternal mainName gamma@(defByName, (_, xToTs), _) = annotateGoal
               goalStack                 = (preAnnotatedGoal, stackWithTheGoal)
               
               (annotatedGoal, updStack) = annotateInternal name updGamma goalStack
-              isInvDef                  = disjStackPred name (concat annotatedGoal, updStack) 
+--              isInvDef                  = disjStackPred name (concat annotatedGoal, updStack) 
 
-              resTerms                  = if isInvDef then selfUpdTerms else terms
+              resTerms                  = selfUpdTerms -- if isInvDef then selfUpdTerms else terms
 
               stackTerms                = replaceUndef (Just 1) <$> resetTerms
               updUpdStack               = addToStack updStack name stackTerms annotatedGoal

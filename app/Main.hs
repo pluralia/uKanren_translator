@@ -5,17 +5,52 @@ module Main (
 import           Program.Prop
 import           Syntax
 
-import           Annotator.Main       (preTranslate)
 import           Init
-import           Translator           (translate)
+
 
 -----------------------------------------------------------------------------------------------------
 
 main :: IO ()
 main = do
-  let inDirName = "resources/"
+  let inDirName   = "resources/"
       inFileNames = (inDirName ++) <$> ["list", "num", "bool", "programs", "extra"]
+      outFileName = "test/Res.hs"
   nameToDef <- initDefsByNames inFileNames
+  let moduleName = "module Res where"
+  let imports = ["\n", "import Lib.Peano", "import Lib.Generator", "\n"]
+  writeFile outFileName . unlines $ moduleName : imports
+
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+-- simple case
+  let appendoProgram = createProgram nameToDef "appendo" ["x", "y", "xy"]
+-- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  let appendoIIO = mkToHsText appendoProgram ["x", "y"]
+  putStrLn appendoIIO
+  appendFile outFileName appendoIIO
+
+  let appendoOOI = mkToHsText appendoProgram ["xy"]
+  putStrLn appendoOOI
+  appendFile outFileName appendoOOI
+
+  let appendoIOO = mkToHsText appendoProgram ["x"]
+  putStrLn appendoIOO
+  appendFile outFileName appendoIOO
+
+  let appendoOIO = mkToHsText appendoProgram ["y"]
+  putStrLn appendoOIO
+  appendFile outFileName appendoOIO
+
+  let appendoOII = mkToHsText appendoProgram ["y", "xy"]
+  putStrLn appendoOII
+  appendFile outFileName appendoOII
+
+  let appendoIOI = mkToHsText appendoProgram ["x", "xy"]
+  putStrLn appendoIOI
+  appendFile outFileName appendoIOI
+
+-----------------------------------------------------------------------------------------------------
+
 
   -- simple case
 {-
@@ -190,7 +225,7 @@ main = do
   print $ translate annDefs2
   putStrLn "=====================================================================================\n\n"
 -}
-
+{-
   putStrLn "=====================================================================================\n\n"
   let appendoProgram = createProgram nameToDef "appendo" ["x", "y", "xy"]
   print appendoProgram
@@ -199,7 +234,7 @@ main = do
   print annDefs
   print $ translate annDefs
   putStrLn "=====================================================================================\n\n"
-
+-}
 ------------------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------------------
 ------------------------------------------------------------------------------------------------------

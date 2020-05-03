@@ -32,6 +32,9 @@ data Line = Line [Pat] [Guard] [Assign] [Guard] Expr
 data F = F String [Line]
   deriving (Eq, Ord)
 
+
+newtype HsProgram = HsProgram [F]
+
 -----------------------------------------------------------------------------------------------------
 
 instance Show Atom where
@@ -56,8 +59,9 @@ instance Show Expr where
 
 instance Show Assign where
   show (Assign name expr@(Term (Ctor ctorName _)))
-    | ctorName /= "gen"  = printf "let %s = %s" (show name) (show expr)
-  show (Assign name expr) = printf "%s <- %s" (show name) (show expr)
+    | ctorName == "gen"            = printf "%s <- %s" (show name) (show expr)
+  show (Assign name expr@(Term _)) = printf "let %s = %s" (show name) (show expr)
+  show (Assign name expr)          = printf "%s <- %s" (show name) (show expr)
 
 
 instance Show Guard where
@@ -122,4 +126,11 @@ instance Show F where
       getArgsNum :: [Line] -> Int
       getArgsNum ((Line pats _ _ _ _) : _) = length pats
       getArgsNum []                        = error "no lines"
-      
+
+
+instance Show HsProgram where
+  show (HsProgram fList) =
+    "-------------------------------------------------------------------------------------\n\n" ++
+    (unlines . fmap show $ fList) ++
+    "-------------------------------------------------------------------------------------\n"
+

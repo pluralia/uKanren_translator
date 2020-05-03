@@ -7,7 +7,15 @@ import           Data.List            (nub, union)
 import           Program.Prop
 import           Syntax
 
+
 import           Parser               (defsAsts)
+import           Annotator.Main       (preTranslate)
+import           Translator           (translate)
+
+-----------------------------------------------------------------------------------------------------
+
+mkToHsText :: Program -> [String] -> String
+mkToHsText program = show . translate . preTranslate program
 
 -----------------------------------------------------------------------------------------------------
 

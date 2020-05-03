@@ -61,6 +61,8 @@ normalizeInvokesInternal (Program scope goal) =
        in mapToDefList . defListToMap
 
 
+invokeSpec :: [Term X] -> [Term X]
+
 invokeSpec terms = (\(C _ updTerms, _) -> updTerms) $ go (0, M.empty) (C "" terms)
   where
     go :: (Ord a, Show a) => (Int, M.Map a Int) -> Term a -> (Term X, (Int, M.Map a Int))
@@ -75,6 +77,12 @@ invokeSpec terms = (\(C _ updTerms, _) -> updTerms) $ go (0, M.empty) (C "" term
 
 makeSpec :: Name -> [Term X] -> Name
 makeSpec name terms = "{" ++ name ++ " " ++ (intercalate " " (show <$> terms)) ++ "}"
+
+
+makeUniqueVars :: [Term X] -> [X]
+makeUniqueVars =
+  foldl' (\acc x -> if x `elem` acc then acc else acc ++ [x]) [] .
+  concatMap getVarsT
 
 
 replaceInvoke :: E.Gamma ->
@@ -95,15 +103,15 @@ replaceInvoke gamma0 = go
           (invInfo2, (updG2, defs2)) = go invInfo1 goal2
        in (invInfo2, (updG1 :\/: updG2, defs1 ++ defs2))
     go invInfo (Fresh name goal) = second (first (Fresh name)) $ go invInfo goal
-    go invInfo inv@(Invoke name terms) 
-      | all isVar terms && nub terms == terms = (invInfo, (inv, []))
-      | otherwise                             =
+    go invInfo inv@(Invoke name terms)
+     | all isVar terms && nub terms == terms = (invInfo, (inv, []))
+     | otherwise                             =
       let
           spec        = makeSpec name (invokeSpec terms)
           (defs, updInvInfo@(_, specToName)) = unfoldInvoke gamma0 invInfo (name, invokeSpec terms)
           newName     = maybe (error "replaceInvoke: undef invoke") id $ M.lookup spec specToName
-          invokeTerms = fmap V . S.toList . S.fromList . concatMap getVarsT $ terms
-       in (updInvInfo, (Invoke newName invokeTerms, defs))
+          invokeTerms = fmap V . makeUniqueVars $ terms
+       in (updInvInfo, ({-Fresh "xxx" $ V "xxx" :=: V "xxx" :/\: -} Invoke newName invokeTerms, defs))
 
 
 -- (source func name TO number of additional funcs, func spec TO name of additional func) ->
@@ -118,7 +126,7 @@ unfoldInvoke (defByName, _, _) invInfo@(fNameToNum, specToName) (name, terms) =
       num           = maybe (error "unfoldInvokes: undef invoke") id $ M.lookup name fNameToNum
       newName       = name ++ (show num) ++ "ext"
 
-      argsNames     = S.toList . S.fromList . concatMap getVarsT $ terms
+      argsNames     = makeUniqueVars terms
 
       (Def _ sourceArgs sourceGoal) = defByName name
       unfoldedGoal                  = renameGX (M.fromList $ zip sourceArgs terms) sourceGoal

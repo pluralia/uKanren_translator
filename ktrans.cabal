@@ -30,6 +30,7 @@ library
     , Translator
   other-modules:
       Annotator.Internal.Core
+    , Annotator.Internal.Gen
     , Annotator.Internal.Lib
     , Annotator.Internal.Normalization
     , Annotator.Internal.Stack
@@ -60,6 +61,7 @@ test-suite test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Res
   hs-source-dirs:
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
