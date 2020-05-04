@@ -22,336 +22,213 @@ main = do
 
 -----------------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------
--- simple case
+
+-- GENERAL vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
   let appendoProgram = createProgram nameToDef "appendo" ["x", "y", "xy"]
 -- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+{-
+  -- simple case
   let appendoIIO = mkToHsText appendoProgram ["x", "y"]
   putStrLn appendoIIO
   appendFile outFileName appendoIIO
 
+  -- simple case
   let appendoOOI = mkToHsText appendoProgram ["xy"]
   putStrLn appendoOOI
   appendFile outFileName appendoOOI
-
+-}
+  -- generation
   let appendoIOO = mkToHsText appendoProgram ["x"]
   putStrLn appendoIOO
   appendFile outFileName appendoIOO
 
+  -- generation
   let appendoOIO = mkToHsText appendoProgram ["y"]
   putStrLn appendoOIO
   appendFile outFileName appendoOIO
 
+  -- duplicate vars in pattern matching
   let appendoOII = mkToHsText appendoProgram ["y", "xy"]
   putStrLn appendoOII
   appendFile outFileName appendoOII
 
+  -- duplicate vars in pattern matching
   let appendoIOI = mkToHsText appendoProgram ["x", "xy"]
   putStrLn appendoIOI
   appendFile outFileName appendoIOI
 
+  appendFile outFileName 
+    "-------------------------------------------------------------------------------------\n"
+
+-----------------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------
 
-
-  -- simple case
-{-
-  putStrLn "=====================================================================================\n\n"
-  let appendoProgram = createProgram nameToDef "appendo" ["x", "y", "xy"]
-  print appendoProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs1 = preTranslate appendoProgram ["x", "y"]
-  print annDefs1
-  print $ translate annDefs1
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs2 = preTranslate appendoProgram ["xy"]
-  print annDefs2
-  print $ translate annDefs2
-  putStrLn "=====================================================================================\n\n"
--}
-
-  -- some unifications of IN var
-{-
-  putStrLn "=====================================================================================\n\n"
+-- SOME UNIFICATIONS OF IN VARS vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
   let appendoPatProgram = createProgram nameToDef "appendoPat" ["x", "y", "xy"]
-  print appendoPatProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs1 = preTranslate appendoPatProgram ["x", "y"]
-  print annDefs1
-  print $ translate annDefs1
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs2 = preTranslate appendoPatProgram ["xy"]
-  print annDefs2
-  print $ translate annDefs2
-  putStrLn "=====================================================================================\n\n"
--}
-
-  -- some invokes; give the same translation independently conjs order
-{-
-  putStrLn "=====================================================================================\n\n"
-  let reversoUnifProgram = createProgram nameToDef "reversoUnif" ["x", "y"]
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print reversoUnifProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs1 = preTranslate reversoUnifProgram ["x"]
-  print annDefs1
---  print $ translate annDefs1
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-{-
-  let annDefs2 = preTranslate reversoUnifProgram ["y"]
-  print annDefs2
---  doesn't work because of additional unification
---  print $ translate annDefs2
--}
-  putStrLn "=====================================================================================\n\n"
--}
-{-
-  putStrLn "=====================================================================================\n\n"
-  let reversoUnifRevProgram = createProgram nameToDef "reversoUnifRev" ["x", "y"]
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print reversoUnifRevProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs1 = preTranslate reversoUnifRevProgram ["x"]
-  print annDefs1
-  print $ translate annDefs1
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-{-
-  let annDefs2 = preTranslate reversoUnifRevProgram ["y"]
-  print annDefs2
---  doesn't work because of additional unification
---  print $ translate annDefs2
--}
-  putStrLn "=====================================================================================\n\n"
--}
-
-  -- ctor-ctor unification
-{-
-  putStrLn "=====================================================================================\n\n"
-  let appendoCtorsUnifProgram = createProgram nameToDef "appendoCtorsUnif" ["x", "y", "xy"]
-  print appendoCtorsUnifProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs1 = preTranslate appendoCtorsUnifProgram ["x", "y"]
-  print annDefs1
-  print $ translate annDefs1
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs2 = preTranslate appendoCtorsUnifProgram ["xy"]
-  print annDefs2
-  print $ translate annDefs2
-  putStrLn "=====================================================================================\n\n"
--}
-
-  -- duplicate vars in pattern matching
-{-
-  putStrLn "=====================================================================================\n\n"
-  let appendoProgram = createProgram nameToDef "appendo" ["x", "y", "xy"]
-  print appendoProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs = preTranslate appendoProgram ["x", "xy"]
-  print annDefs
-  print $ translate annDefs
-  putStrLn "=====================================================================================\n\n"
--}
-
-  -- duplicate vars in assigns
-{-
-  putStrLn "=====================================================================================\n\n"
-  let appendoAssignProgram = createProgram nameToDef "appendoAssign" ["x", "y", "xy"]
-  print appendoAssignProgram
-  let annDefs = preTranslate appendoAssignProgram ["xy"]
-  print annDefs
-  print $ translate annDefs
-  putStrLn "=====================================================================================\n\n"
--}
-
-  -- non-recursive invokes with ctors
-{-
-  putStrLn "=====================================================================================\n\n"
-  let reversoProgram = createProgram nameToDef "reverso" ["x", "y"]
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print reversoProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs1 = preTranslate reversoProgram ["x"]
-  print annDefs1
-  print $ translate annDefs1
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs2 = preTranslate reversoProgram ["y"]
-  print annDefs2
-  print $ translate annDefs2
-  putStrLn "=====================================================================================\n\n"
--}
-{-
-  putStrLn "=====================================================================================\n\n"
-  let zeroAppendoProgram = createProgram nameToDef "zeroAppendo" ["x", "y", "xy"]
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print zeroAppendoProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs1 = preTranslate zeroAppendoProgram ["xy"]
-  print annDefs1
-  print $ translate annDefs1
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs2 = preTranslate zeroAppendoProgram ["x", "y"]
-  print annDefs2
-  print $ translate annDefs2
-  putStrLn "=====================================================================================\n\n"
--}
-
-  -- duplicate vars in invokes
-{-
-  putStrLn "=====================================================================================\n\n"
-  let doubleAppendoProgram = createProgram nameToDef "doubleAppendo" ["x", "xy"]
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print doubleAppendoProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs1 = preTranslate doubleAppendoProgram ["x"]
-  print annDefs1
-  print $ translate annDefs1
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs2 = preTranslate doubleAppendoProgram ["xy"]
-  print annDefs2
-  print $ translate annDefs2
-  putStrLn "=====================================================================================\n\n"
--}
+-- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  -- simple case
+  let appendoPatIIO = mkToHsText appendoPatProgram ["x", "y"]
+  putStrLn appendoPatIIO
+  appendFile outFileName appendoPatIIO
 
   -- generation
+  let appendoPatIOO = mkToHsText appendoPatProgram ["x"]
+  putStrLn appendoPatIOO
+  appendFile outFileName appendoPatIOO
+
+  -- duplicate vars in pattern matching
+  let appendoPatIOI = mkToHsText appendoPatProgram ["x", "xy"]
+  putStrLn appendoPatIOI
+  appendFile outFileName appendoPatIOI
+
+  appendFile outFileName 
+    "-------------------------------------------------------------------------------------\n"
+
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+
+-- CTOR-CTOR UNIFICATION vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+  let appendoCtorsUnifProgram = createProgram nameToDef "appendoCtorsUnif" ["x", "y", "xy"]
+-- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  -- simple case
+  let appendoCtorsUnifIIO = mkToHsText appendoCtorsUnifProgram ["x", "y"]
+  putStrLn appendoCtorsUnifIIO
+  appendFile outFileName appendoCtorsUnifIIO
+
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+
+-- DUPLICATE VARS IN ASSIGNS vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+  let appendoAssignProgram = createProgram nameToDef "appendoAssign" ["x", "y", "xy"]
+-- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  -- simple case
+  let appendoAssignIIO = mkToHsText appendoAssignProgram ["x", "y"]
+  putStrLn appendoAssignIIO
+  appendFile outFileName appendoAssignIIO
+
+  -- duplicate vars in pattern matching
+  let appendoAssignOOI = mkToHsText appendoAssignProgram ["xy"]
+  putStrLn appendoAssignOOI
+  appendFile outFileName appendoAssignOOI
 {-
-  putStrLn "=====================================================================================\n\n"
+  -- 
+  let appendoAssignIOO = mkToHsText appendoAssignProgram ["x"]
+  putStrLn appendoAssignIOO
+  appendFile outFileName appendoAssignIOO
+
+  -- 
+  let appendoAssignOIO = mkToHsText appendoAssignProgram ["y"]
+  putStrLn appendoAssignOIO
+  appendFile outFileName appendoAssignOIO
+-}
+  -- duplicate vars in pattern matching
+  let appendoAssignOII = mkToHsText appendoAssignProgram ["y", "xy"]
+  putStrLn appendoAssignOII
+  appendFile outFileName appendoAssignOII
+
+  -- duplicate vars in pattern matching
+  let appendoAssignIOI = mkToHsText appendoAssignProgram ["x", "xy"]
+  putStrLn appendoAssignIOI
+  appendFile outFileName appendoAssignIOI
+
+  appendFile outFileName 
+    "-------------------------------------------------------------------------------------\n"
+
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+
+-- DUPLICATE IN VARS IN INVOKES vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+  let doubleAppendoProgram = createProgram nameToDef "doubleAppendo" ["x", "xy"]
+-- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  -- simple case
+  let doubleAppendoIO = mkToHsText doubleAppendoProgram ["x"]
+  putStrLn doubleAppendoIO
+  appendFile outFileName doubleAppendoIO
+
+  -- duplicate vars in assign
+  let doubleAppendoOI = mkToHsText doubleAppendoProgram ["xy"]
+  putStrLn doubleAppendoOI
+  appendFile outFileName doubleAppendoOI
+
+  appendFile outFileName 
+    "-------------------------------------------------------------------------------------\n"
+
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+
+-- GENERAL vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
   let lengthoProgram = createProgram nameToDef "lengtho" ["x", "l"]
-  print lengthoProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs1 = preTranslate lengthoProgram ["l"]
-  print annDefs1
-  print $ translate annDefs1
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs2 = preTranslate lengthoProgram ["x"]
-  print annDefs2
-  print $ translate annDefs2
-  putStrLn "=====================================================================================\n\n"
--}
+-- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  -- simple case
+  let lengthoIO = mkToHsText lengthoProgram ["x"]
+  putStrLn lengthoIO
+  appendFile outFileName lengthoIO
+
+  -- generation
+  let lengthoOI = mkToHsText lengthoProgram ["l"]
+  putStrLn lengthoOI
+  appendFile outFileName lengthoOI
+
+  appendFile outFileName 
+    "-------------------------------------------------------------------------------------\n"
+
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
 {-
-  putStrLn "=====================================================================================\n\n"
-  let appendoProgram = createProgram nameToDef "appendo" ["x", "y", "xy"]
-  print appendoProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs = preTranslate appendoProgram ["y"]
-  print annDefs
-  print $ translate annDefs
-  putStrLn "=====================================================================================\n\n"
--}
-------------------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------------------
-------------------------------------------------------------------------------------------------------
+-- NON-RECURSIVE INVOKE WITH CTOR vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+  let reversoProgram = createProgram nameToDef "reverso" ["x", "y"]
+-- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  -- some invokes
+  let reversoIO = mkToHsText reversoProgram ["x"]
+  putStrLn reversoIO
+  appendFile outFileName reversoIO
 
-  -- recursive invokes with ctors
-{-
-  putStrLn "=====================================================================================\n\n"
-  let maxLengthoProgram = createProgram nameToDef "maxLengtho" ["x", "m", "l"]
-  print maxLengthoProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs1 = preTranslate maxLengthoProgram ["x", "m"]
-  print annDefs1
-  print $ translate annDefs1
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-{-
-  let annDefs2 = preTranslate maxLengthoProgram ["l"]
-  print annDefs2
-  print $ translate annDefs2
--}
-  putStrLn "=====================================================================================\n\n"
--}
+  -- some invokes
+  let reversoIO = mkToHsText reversoProgram ["y"]
+  putStrLn reversoIO
+  appendFile outFileName reversoIO
 
-
-
-{-
-  -- simple predicate case: one invoke
-  putStrLn "=====================================================================================\n\n"
-  let appendoProgram = createProgram nameToDef "appendo" ["x", "y", "xy"]
-  print appendoProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  let annDefs = preTranslate appendoProgram ["x", "y", "xy"]
-  print annDefs
---  print $ translate annDefs
-  putStrLn "=====================================================================================\n\n"
--}
-
-
-
-
-
-
-{-
-  putStrLn "=====================================================================================\n\n"
-  let revaccoGenProgram = createProgram nameToDef "revaccoGenIOO" ["xs", "acc", "sx"]
-  print revaccoGenProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ preTranslate revaccoGenProgram [("xs", In)]
-  putStrLn "=====================================================================================\n\n"
--}
-{-
-  putStrLn "=====================================================================================\n\n"
-  let revaccoGenProgram = createProgram nameToDef "revaccoGenOIO" ["xs", "acc", "sx"]
-  print revaccoGenProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ preTranslate revaccoGenProgram [("acc", In)]
-  putStrLn "=====================================================================================\n\n"
--}
-{-
-  putStrLn "=====================================================================================\n\n"
-  let revaccoGenProgram = createProgram nameToDef "revaccoGenOOIIIOIOIIII" ["xs", "acc", "sx"]
-  print revaccoGenProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ preTranslate revaccoGenProgram [("sx", In)]
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ preTranslate revaccoGenProgram [("xs", In), ("acc", In)]
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ preTranslate revaccoGenProgram [("xs", In), ("sx", In)]
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ preTranslate revaccoGenProgram [("xs", In), ("acc", In), ("sx", In)]
-  putStrLn "=====================================================================================\n\n"
--}
-{-
-  putStrLn "=====================================================================================\n\n"
-  let revaccoGenProgram = createProgram nameToDef "revaccoGenIII" ["xs", "acc", "sx"]
-  print revaccoGenProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ preTranslate revaccoGenProgram [("xs", In), ("acc", In), ("sx", In)]
-  putStrLn "=====================================================================================\n\n"
--}
-
-
-
-
-
-
-
-
-{-
-  putStrLn "=====================================================================================\n\n"
-  let revaccoProgram = createProgram nameToDef "revacco" ["xs", "acc", "sx"]
-  print revaccoProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ translate revaccoProgram [("xs", In), ("acc", In)]
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ translate revaccoProgram [("sx", In)]
-  putStrLn "=====================================================================================\n\n"
--}
-
-
-
-{-
-  putStrLn "=====================================================================================\n\n"
-  let plainEvaloProgram = plainQuery'
-  print plainEvaloProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ translate plainEvaloProgram [("res", In)]
-  putStrLn "=====================================================================================\n\n"
--}
-
-{-
-  putStrLn "=====================================================================================\n\n"
-  let queryProgram = Program evalo $ fresh ["st", "fm", "res"] (call "evalo" [V "st", V "fm", V "res"])
-  print queryProgram
-  putStrLn "-------------------------------------------------------------------------------------\n\n"
-  print $ translate queryProgram [("res", In)]
-  putStrLn "=====================================================================================\n\n"
+  appendFile outFileName 
+    "-------------------------------------------------------------------------------------\n"
 -}
 -----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+
+-- NON-RECURSIVE INVOKE WITH CTOR && SOME INVOKES IN "WRONG" ORDER vvvvvv
+  let reversoRevProgram = createProgram nameToDef "reversoRev" ["x", "y"]
+-- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  -- some invokes
+  let reversoRevIO = mkToHsText reversoRevProgram ["x"]
+  putStrLn reversoRevIO
+  appendFile outFileName reversoRevIO
+
+  -- some invokes
+  let reversoRevIO = mkToHsText reversoRevProgram ["y"]
+  putStrLn reversoRevIO
+  appendFile outFileName reversoRevIO
+
+  appendFile outFileName 
+    "-------------------------------------------------------------------------------------\n"
+
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+{-
+-- RECURSIVE INVOKE WITH CTOR vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+  let revaccoProgram = createProgram nameToDef "revacco" ["xs", "acc", "sx"]
+-- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  -- 
+  let revaccoIIO = mkToHsText revaccoProgram ["xs", "acc"]
+  putStrLn revaccoIIO
+  appendFile outFileName revaccoIIO
+
+  -- 
+  let revaccoOOI = mkToHsText revaccoProgram ["sx"]
+  putStrLn revaccoOOI
+  appendFile outFileName revaccoOOI
+
+  appendFile outFileName 
+    "-------------------------------------------------------------------------------------\n"
+-}
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+

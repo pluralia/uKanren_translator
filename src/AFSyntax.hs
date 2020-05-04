@@ -131,6 +131,5 @@ instance Show F where
 instance Show HsProgram where
   show (HsProgram fList) =
     "-------------------------------------------------------------------------------------\n\n" ++
-    (unlines . fmap show $ fList) ++
-    "-------------------------------------------------------------------------------------\n"
+    (unlines . fmap show $ fList)
 
