@@ -312,3 +312,31 @@ reversoRevOI1 s1 = do
 reversoRevOI1 _ = []
 
 -------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+
+revaccoIIO x0 x1 = revaccoIIO0 x0 x1 ++ revaccoIIO1 x0 x1
+revaccoIIO0 s0@[] s1 = do
+  let s2 = s1
+  return $ (s2)
+revaccoIIO0 _ _ = []
+revaccoIIO1 s0@(s3 : s4) s1 = do
+  let s5 = (s3 : s1)
+  (s2) <- revaccoIIO s4 s5
+  return $ (s2)
+revaccoIIO1 _ _ = []
+
+-------------------------------------------------------------------------------------
+
+revaccoOOI x0 = revaccoOOI0 x0 ++ revaccoOOI1 x0
+revaccoOOI0 s2@s1 = do
+  let s0 = []
+  return $ (s0, s1)
+revaccoOOI0 _ = []
+revaccoOOI1 s2 = do
+  (s4, s5) <- revaccoOOI s2
+  let (s3 : s1) = s5
+  let s0 = (s3 : s4)
+  return $ (s0, s1)
+revaccoOOI1 _ = []
+
+-------------------------------------------------------------------------------------

@@ -7,6 +7,7 @@ module Annotator.Internal.Normalization (
 
 import           Data.Bifunctor        (first, second, bimap)
 import           Data.Foldable         (foldl')
+import           Data.Maybe            (catMaybes)
 import qualified Data.Map.Strict  as M
 import           Data.List             (intercalate, nub)
 import qualified Data.Set         as S
@@ -43,11 +44,11 @@ normalizeInvokesInternal (Program scope goal) =
       gamma0         = E.updateDefsInGamma E.env0 scope
       replaceInvokeG = replaceInvoke gamma0
       initInvInfo    = (M.fromList . fmap (\(Def name _ _) -> (name, 0)) $ scope, M.empty)
-      (invInfo, (updGoal, goalDefs))  = replaceInvokeG initInvInfo goal
+      (invInfo, (updGoal, goalDefs))  = replaceInvokeG "" initInvInfo goal
       (_, (replacedScope, scopeDefs)) = 
         foldr
           (\(Def n as goal) (sTN, (acc, defs)) ->
-              second (bimap ((: acc) . (Def n as)) (++ defs)) $ replaceInvokeG sTN goal)
+              second (bimap ((: acc) . (Def n as)) (++ defs)) $ replaceInvokeG n sTN goal)
           (invInfo, ([], []))
           scope
       updScope = removeRepeatingDefs $ goalDefs ++ scopeDefs ++ replacedScope
@@ -62,7 +63,6 @@ normalizeInvokesInternal (Program scope goal) =
 
 
 invokeSpec :: [Term X] -> [Term X]
-
 invokeSpec terms = (\(C _ updTerms, _) -> updTerms) $ go (0, M.empty) (C "" terms)
   where
     go :: (Ord a, Show a) => (Int, M.Map a Int) -> Term a -> (Term X, (Int, M.Map a Int))
@@ -85,11 +85,11 @@ makeUniqueVars =
   concatMap getVarsT
 
 
-replaceInvoke :: E.Gamma ->
+replaceInvoke :: E.Gamma -> Name ->
                  (M.Map Name Int, M.Map Name Name)->
                  G X ->
                  ((M.Map Name Int, M.Map Name Name), (G X, [Def]))
-replaceInvoke gamma0 = go
+replaceInvoke gamma0 mainName = go
   where
     go :: (M.Map Name Int, M.Map Name Name) -> G X ->
           ((M.Map Name Int, M.Map Name Name), (G X, [Def]))
@@ -107,11 +107,29 @@ replaceInvoke gamma0 = go
      | all isVar terms && nub terms == terms = (invInfo, (inv, []))
      | otherwise                             =
       let
-          spec        = makeSpec name (invokeSpec terms)
+          spec          = makeSpec name (invokeSpec terms)
           (defs, updInvInfo@(_, specToName)) = unfoldInvoke gamma0 invInfo (name, invokeSpec terms)
-          newName     = maybe (error "replaceInvoke: undef invoke") id $ M.lookup spec specToName
-          invokeTerms = fmap V . makeUniqueVars $ terms
-       in (updInvInfo, ({-Fresh "xxx" $ V "xxx" :=: V "xxx" :/\: -} Invoke newName invokeTerms, defs))
+          newName       = maybe (error "replaceInvoke: undef invoke") id $ M.lookup spec specToName
+          renamedInvoke = Invoke newName (fmap V . makeUniqueVars $ terms)
+
+          ((fr, gs), rTerms) = resolveCtorInvoke terms
+          unifs              = foldr (:/\:) (Invoke name rTerms) gs
+          unifedInvoke       = foldr (\f acc -> Fresh f acc) unifs fr
+       in if mainName == name
+            then (invInfo, (unifedInvoke, []))
+            else (updInvInfo, (renamedInvoke, defs))
+
+
+resolveCtorInvoke :: [Term X] -> (([X], [G X]), [Term X])
+resolveCtorInvoke = first (unzip . catMaybes) . unzip . fmap go
+  where
+    go :: Term X -> (Maybe (X, G X), Term X)
+    go v@(V _)       = (Nothing, v)
+    go c@(C _ terms) =
+      let
+          termVars = concatMap getVarsT $ terms
+          newVar = concat termVars
+       in if length termVars == 1 then (Nothing, c) else (Just (newVar, V newVar :=: c), V newVar)
 
 
 -- (source func name TO number of additional funcs, func spec TO name of additional func) ->
