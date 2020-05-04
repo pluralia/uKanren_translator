@@ -104,20 +104,20 @@ replaceInvoke gamma0 mainName = go
        in (invInfo2, (updG1 :\/: updG2, defs1 ++ defs2))
     go invInfo (Fresh name goal) = second (first (Fresh name)) $ go invInfo goal
     go invInfo inv@(Invoke name terms)
-     | all isVar terms && nub terms == terms = (invInfo, (inv, []))
-     | otherwise                             =
-      let
-          spec          = makeSpec name (invokeSpec terms)
-          (defs, updInvInfo@(_, specToName)) = unfoldInvoke gamma0 invInfo (name, invokeSpec terms)
-          newName       = maybe (error "replaceInvoke: undef invoke") id $ M.lookup spec specToName
-          renamedInvoke = Invoke newName (fmap V . makeUniqueVars $ terms)
+     | mainName == name = recursionHandler gamma0 invInfo inv
+     | otherwise        = invokeHandler gamma0 invInfo inv
 
-          ((fr, gs), rTerms) = resolveCtorInvoke terms
-          unifs              = foldr (:/\:) (Invoke name rTerms) gs
-          unifedInvoke       = foldr (\f acc -> Fresh f acc) unifs fr
-       in if mainName == name
-            then (invInfo, (unifedInvoke, []))
-            else (updInvInfo, (renamedInvoke, defs))
+----------------------------------------------------------------------------------------------------
+
+recursionHandler :: E.Gamma -> (M.Map Name Int, M.Map Name Name) -> G X ->
+                    ((M.Map Name Int, M.Map Name Name), (G X, [Def]))
+recursionHandler gamma0 invInfo inv@(Invoke name terms) =
+  let
+      ((freshes, unifs), rTerms) = resolveCtorInvoke terms
+      (updInvInfo, (updInv, defs)) = invokeHandler gamma0 invInfo (Invoke name rTerms)
+      unifedInvoke                 = foldr (:/\:) updInv unifs
+      freshedInvoke                = foldr (\f acc -> Fresh f acc) unifedInvoke freshes
+   in (updInvInfo, (freshedInvoke, defs))
 
 
 resolveCtorInvoke :: [Term X] -> (([X], [G X]), [Term X])
@@ -130,6 +130,20 @@ resolveCtorInvoke = first (unzip . catMaybes) . unzip . fmap go
           termVars = concatMap getVarsT $ terms
           newVar = concat termVars
        in if length termVars == 1 then (Nothing, c) else (Just (newVar, V newVar :=: c), V newVar)
+
+----------------------------------------------------------------------------------------------------
+
+invokeHandler :: E.Gamma -> (M.Map Name Int, M.Map Name Name) -> G X ->
+                 ((M.Map Name Int, M.Map Name Name), (G X, [Def]))
+invokeHandler gamma0 invInfo inv@(Invoke name terms)
+  | all isVar terms && nub terms == terms = (invInfo, (inv, []))
+  | otherwise                             =
+    let
+      spec          = makeSpec name (invokeSpec terms)
+      (defs, updInvInfo@(_, specToName)) = unfoldInvoke gamma0 invInfo (name, invokeSpec terms)
+      newName       = maybe (error "replaceInvoke: undef invoke") id $ M.lookup spec specToName
+      renamedInvoke = Invoke newName (fmap V . makeUniqueVars $ terms)
+     in (updInvInfo, (renamedInvoke, defs))
 
 
 -- (source func name TO number of additional funcs, func spec TO name of additional func) ->
