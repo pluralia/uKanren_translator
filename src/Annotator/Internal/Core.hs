@@ -68,7 +68,7 @@ annotateInternal mainName gamma@(defByName, (_, xToTs), _) = annotateGoal
         -- if all terms are undefined or annotated -- skip it
         isSkippable :: Bool
         isSkippable = {- trace ("INVOKE: " ++ show invokeStack) $ -}
-          (all (isNothing . maxAnn) $ terms) || isJust (maxAnn $ C undefined terms)
+          all (isNothing . maxAnn) $ terms
 
         -- in stack
         checkInStack :: Bool

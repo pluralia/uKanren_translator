@@ -57,11 +57,11 @@ appendoOIO0 s1 = do
   return $ (s0, s2)
 appendoOIO0 _ = []
 appendoOIO1 s1 = do
-  s2 <- (gen )
   s3 <- (gen )
   (s4, s5) <- appendoOIO s1
+  let s2 = (s3 : s5)
   let s0 = (s3 : s4)
-  if (s2 == (s3 : s5)) then return $ (s0, s2) else []
+  return $ (s0, s2)
 appendoOIO1 _ = []
 
 -------------------------------------------------------------------------------------

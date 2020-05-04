@@ -6,6 +6,7 @@ module Annotator.Internal.Gen (
 
 import           Data.Bifunctor        (second)
 import           Data.Foldable         (foldl')
+import           Data.List             ((\\))
 import qualified Data.Map.Strict  as M
 import qualified Data.Set         as S
 
@@ -51,28 +52,26 @@ annotateStackWithGen gamma stack =
     addGen :: [S] -> [[G (S, Ann)]] -> [[G (S, Ann)]]
     addGen inArgs = fmap (snd . foldl' (\(gl, res) g -> (++ res) `second` genConj gl g) (inArgs, []))
       where
-        mask :: Term (S, Ann) -> Term S
-        mask (V _)          = V 0
-        mask (C name terms) = C name . fmap mask $ terms
-
         genConj :: [S] -> G (S, Ann) -> ([S], [G (S, Ann)])
         genConj genList invoke@(Invoke _ _) = (genList, [invoke])
         genConj genList unif@(u1 :=: u2)    =
-          let res1@(_, conjs1) = genConjT genList u1
-              res2@(_, conjs2) = genConjT genList u2
-           in (unif :) `second`
-              case (conjs1, conjs2) of
-                ((_ : _), (_ : _)) -> if mask u1 `isInst` mask u2 then res2 else res1
-                ((_ : _), [])      -> res1
-                ([],      (_ : _)) -> res2
-                ([],      [])      -> (genList, [])
+          (unif :) `second`
+            case (genVars u1, genVars u2) of
+              (gv1@(_ : _), gv2@(_ : _)) ->
+                case (gv1 \\ genList, gv2 \\ genList) of
+                  (l1@(_ : _), l2@(_ : _)) -> conj $ if u1 `isInst` u2 then l2 else l1
+                  (_,          _)          -> (genList, [])
+              (gv1@(_ : _), [])          -> conj (gv1 \\ genList)
+              ([],          gv2@(_ : _)) -> conj (gv2 \\ genList)
+              ([],          [])          -> (genList, [])
 
-        genConjT :: [S] -> Term (S, Ann) -> ([S], [G (S, Ann)])
-        genConjT genList (V (s, Nothing))
-          | not $ s `elem` genList = (s : genList, [V (s, Just 1) :=: C "gen" []])
-        genConjT genList (V _)       = (genList, [])
-        genConjT genList (C _ terms) =
-          foldl' (\(gl, res) t -> (++ res) `second` genConjT gl t) (genList, []) terms
+        conj :: [S] -> ([S], [G (S, Ann)])
+        conj vars = (vars, ((:=: C "gen" [])  . V . (, Just 1)) <$> vars)
+
+        genVars :: Term (S, Ann) -> [S]
+        genVars (V (s, Nothing)) = [s]
+        genVars (V _)            = []
+        genVars (C _ terms)      = genVars `concatMap` terms
 
 ----------------------------------------------------------------------------------------------------
 
