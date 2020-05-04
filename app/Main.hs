@@ -251,4 +251,23 @@ main = do
 
 -----------------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------
+{-
+-- IMPLICIT RECURSION vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+  let evenoProgram = createProgram nameToDef "eveno" ["n", "res"]
+-- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  --
+  let evenoIO = mkToHsText evenoProgram ["n"]
+  putStrLn evenoIO
+  appendFile outFileName evenoIO
+
+  --
+  let evenoOI = mkToHsText reversoRevProgram ["res"]
+  putStrLn evenoOI
+  appendFile outFileName evenoOI
+
+  appendFile outFileName 
+    "-------------------------------------------------------------------------------------\n"
+-}
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
 

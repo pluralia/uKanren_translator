@@ -62,51 +62,10 @@
 :: checkList51 x =
   {genLists x} /\ {has5 x}
 
-
+{-
 :: eveno x =
   [z:
     {addo z z x}]
-
+-}
 -----------------------------------------------------------------------------------------------------
-
-:: test l r = conde
-  ([x mulx:
-     l === x % [] /\ {mulo x (succ (succ zero)) mulx} /\ r === x % mulx % []])
-  ([x1 x2:
-     {test ((succ zero) % []) x1} /\ {test ((succ (succ zero)) % []) x2} /\ {appendo x1 x2 r}])
-
------------------------------------------------------------------------------------------------------
-
-:: makeX res = conde
-  (res === zero)
-  (res === succ zero)
-
-
-:: makeY x res = conde
-  (res === x)
-  (res === succ (succ zero))
-  (res === succ (succ (succ zero)))
-
-
-:: makeA res = conde
-  (res === succ (succ (succ (succ zero))))
-  (res === succ (succ (succ (succ (succ zero)))))
-
-
-:: makeB res = conde
-  (res === succ (succ (succ (succ (succ (succ zero))))))
-  (res === succ (succ (succ (succ (succ (succ (succ zero)))))))
-
-
-:: go l res = conde
-  ([sec rest x y:
-     l === succ zero % (sec % rest) /\
-     {makeX x} /\
-     {makeY x y} /\
-     res === x % y % []])
-  ([fir rest a b:
-     l === fir % succ (succ zero) % rest /\
-     {makeA a} /\
-     {makeB b} /\
-     res === a % b % []])
 
