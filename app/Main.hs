@@ -216,7 +216,6 @@ main = do
 -- RECURSIVE INVOKE WITH CTOR vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
   let revaccoProgram = createProgram nameToDef "revacco" ["xs", "acc", "sx"]
 -- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{-
   -- 
   let revaccoIOO = mkToHsText revaccoProgram ["xs"]
   putStrLn revaccoIOO
@@ -226,7 +225,11 @@ main = do
   let revaccoOIO = mkToHsText revaccoProgram ["acc"]
   putStrLn revaccoOIO
   appendFile outFileName revaccoOIO
--}
+
+  -- 
+  let revaccoOOI = mkToHsText revaccoProgram ["sx"]
+  putStrLn revaccoOOI
+  appendFile outFileName revaccoOOI
 
   -- 
   let revaccoIIO = mkToHsText revaccoProgram ["xs", "acc"]
@@ -234,9 +237,14 @@ main = do
   appendFile outFileName revaccoIIO
 
   -- 
-  let revaccoOOI = mkToHsText revaccoProgram ["sx"]
-  putStrLn revaccoOOI
-  appendFile outFileName revaccoOOI
+  let revaccoIOI = mkToHsText revaccoProgram ["xs", "sx"]
+  putStrLn revaccoIOI
+  appendFile outFileName revaccoIOI
+
+  -- 
+  let revaccoOII = mkToHsText revaccoProgram ["acc", "sx"]
+  putStrLn revaccoOII
+  appendFile outFileName revaccoOII
 
   appendFile outFileName 
     "-------------------------------------------------------------------------------------\n"

@@ -64,11 +64,10 @@ main = do
     describe "lengtho" $ do
       it "IN OUT" $ do
         lengthoIO ([1..5] :: [Int]) `shouldBe` [5]
-      it "OUT IN | need gen type: s2 <- (gen :: [Int])" $ do
+      it "OUT IN | gen type: [Int]" $ do
         True `shouldBe` True
-{-
-        lengthoOI (i2p 3) `shouldBe` [[0,0,0],[0,0,1],[0,0,2],[0,1,0],[0,1,1],[0,1,2],[0,2,0],[0,2,1],[0,2,2],[1,0,0],[1,0,1],[1,0,2],[1,1,0],[1,1,1],[1,1,2],[1,2,0],[1,2,1],[1,2,2],[2,0,0],[2,0,1],[2,0,2],[2,1,0],[2,1,1],[2,1,2],[2,2,0],[2,2,1],[2,2,2]]
--}
+--        lengthoOI (i2p 3) `shouldBe` [[0,0,0],[0,0,1],[0,0,2],[0,1,0],[0,1,1],[0,1,2],[0,2,0],[0,2,1],[0,2,2],[1,0,0],[1,0,1],[1,0,2],[1,1,0],[1,1,1],[1,1,2],[1,2,0],[1,2,1],[1,2,2],[2,0,0],[2,0,1],[2,0,2],[2,1,0],[2,1,1],[2,1,2],[2,2,0],[2,2,1],[2,2,2]]
+
 -----------------------------------------------------------------------------------------------------
     describe "reverso: reversoRev checks the same but more complicated example" $ do
       it "IN OUT" $ do
@@ -85,15 +84,19 @@ main = do
         reversoRevOI ([3, 2, 1] :: [Int]) `shouldBe` [[1, 2, 3]]
 -----------------------------------------------------------------------------------------------------
     describe "revacco" $ do
-{-
-      it "IN OUT OUT | need gen type: s1 <- (gen :: [[Int]])" $ do
-        take 2 (revaccoIOO ([1, 2] :: [Int])) `shouldBe` [([],[2,1]),([0],[2,1,0])]
-      it "OUT IN OUT" $ do
-        take 5 (revaccoIOO ([1, 2, 3] :: [Int])) `shouldBe` []
--}
+      it "IN OUT OUT | gen type: [[Int]]" $ do
+        True `shouldBe` False
+--        take 5 (revaccoIOO ([1, 2] :: [Int])) `shouldBe` [([],[2,1]),([0],[2,1,0]),([1],[2,1,1]),([2],[2,1,2]),([0,0],[2,1,0,0])]
+      it "OUT IN OUT | gen type: [Int] | INF | FAIL" $ do
+        True `shouldBe` False
+--        take 5 (revaccoOIO ([1, 2] :: [Int])) `shouldBe` []
+      it "OUT OUT IN | INF" $ do
+        take 4 (revaccoOOI ([1..3] :: [Int])) `shouldBe` [([],[1,2,3]),([1],[2,3]),([2,1],[3]),([3,2,1],[])]
       it "IN IN OUT" $ do
-        revaccoIIO ([1, 2, 3] :: [Int]) ([0, -1] :: [Int]) `shouldBe` [[3, 2, 1, 0, -1]]
-      it "OUT OUT IN" $ do
-        take 5 (revaccoOOI ([3, 2, 1, 0, -1] :: [Int])) `shouldBe` [([],[3,2,1,0,-1]),([3],[2,1,0,-1]),([2,3],[1,0,-1]),([1,2,3],[0,-1]),([0,1,2,3],[-1])]
+        revaccoIIO ([1..3] :: [Int]) ([0, -1] :: [Int]) `shouldBe` [[3, 2, 1, 0, -1]]
+      it "IN OUT IN" $ do
+        revaccoIOI ([1..3] :: [Int]) ([3, 2, 1, 4, 5] :: [Int]) `shouldBe` [[4, 5]]
+      it "OUT IN IN | INF" $ do
+        take 1 (revaccoOII ([4, 5] :: [Int]) ([3, 2, 1, 4, 5] :: [Int])) `shouldBe` [[1..3]]
 -----------------------------------------------------------------------------------------------------
 
