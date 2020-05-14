@@ -1,5 +1,4 @@
 {-# LANGUAGE DerivingStrategies #-}
-
 module Parser (
       progAst
     , strProgAstWithDefGoal
@@ -8,25 +7,17 @@ module Parser (
     , defAst
     ) where
 
-import           Control.Monad (void)
+import           Control.Monad                  (void)
 import           Control.Monad.Combinators.Expr
-import           Data.Void (Void(..))
-import           Data.Either (either)
-import           Syntax
+import           Data.Void                      (Void(..))
+import           Data.Either                    (either)
 import           Text.Megaparsec
 import           Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
+import           Syntax
+
 -----------------------------------------------------------------------------------------------------
-
-progAst :: String -> Maybe (G X -> G X)
-progAst = either (const Nothing) Just . runParser parseProg ""
-
-strProgAstWithDefGoal :: String -> String
-strProgAstWithDefGoal = either errorBundlePretty (show . ($ defGoal)) . runParser parseProg ""
-  where
-    defGoal :: G X
-    defGoal = V "a" === V "b"
 
 defsAsts :: String -> [Def]
 defsAsts = either (const []) id . runParser (many parseDef) ""
@@ -39,8 +30,20 @@ defAst = either (const Nothing) Just . runParser parseDef ""
 
 -----------------------------------------------------------------------------------------------------
 
+progAst :: String -> Maybe (G X -> G X)
+progAst = either (const Nothing) Just . runParser parseProg ""
+
+strProgAstWithDefGoal :: String -> String
+strProgAstWithDefGoal = either errorBundlePretty (show . ($ defGoal)) . runParser parseProg ""
+  where
+    defGoal :: G X
+    defGoal = V "a" === V "b"
+
+-----------------------------------------------------------------------------------------------------
+
 type Parser = Parsec Void String
 
+-----------------------------------------------------------------------------------------------------
 
 -- spaces & comments
 sc :: Parser ()
@@ -73,6 +76,7 @@ angleBr = between (symbol "<") (symbol ">")
 boxBr   = between (symbol "[") (symbol "]")
 curvyBr = between (symbol "{") (symbol "}")
 
+-----------------------------------------------------------------------------------------------------
 
 -- term
 parseTerm :: Parser (Term X)
@@ -139,6 +143,7 @@ parseDesugarTerm = try c <|> v
       terms <- many parseTerm
       return $ C name terms
 
+-----------------------------------------------------------------------------------------------------
 
 -- goal
 parseFresh :: Parser (G X)
@@ -189,6 +194,7 @@ parseDesugarGoal = sc
   <|> parseInvoke
   <|> parseLet
 
+-----------------------------------------------------------------------------------------------------
 
 -- definition
 parseDef :: Parser Def
@@ -200,6 +206,7 @@ parseDef = do
   goal <- parseGoal
   return $ Def name args goal
 
+-----------------------------------------------------------------------------------------------------
 
 -- let
 parseLet :: Parser (G X)

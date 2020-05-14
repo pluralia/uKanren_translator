@@ -2,219 +2,101 @@ module Main (
       main
     ) where
 
-import           Control.Monad        ((>=>))
-import qualified Data.Map.Strict as M
-import           Data.Maybe           (fromMaybe)
-import           Data.List            (nub, union, intercalate)
-import qualified Data.Set as S
-import           Syntax
 import           Test.Hspec
 
-import           Annotation           (translate, PreAnn(..))
-import           Parser               (defsAsts)
-
-import Program.Prop
+import           Lib.Peano
+import           Res
 
 -----------------------------------------------------------------------------------------------------
-
-defsByNames :: M.Map Name Def -> [Name] -> [Def]
-defsByNames nameToDef =
-  fmap (\name -> fromMaybe (error $ "no func: " ++ name) $ M.lookup name nameToDef)
-
-
-createProgram :: M.Map Name Def -> G X -> Program
-createProgram nameToDef goal = Program (defsByGoal [] goal) goal
-  where
-    defsByGoal :: [Def] -> G X -> [Def]
-    defsByGoal knownDefs goal =
-      let defs       = nub . defsByNames nameToDef . namesOfInvokes $ goal
-          newDefs    = filter (`notElem` knownDefs) defs
-       in defs `union` concatMap (\(Def _ _ goal) -> defsByGoal defs goal) newDefs
-
-    
-    namesOfInvokes :: G X -> [Name]
-    namesOfInvokes (_ :=: _)       = []
-    namesOfInvokes (g1 :/\: g2)    = namesOfInvokes g1  ++ namesOfInvokes g2
-    namesOfInvokes (g1 :\/: g2)    = namesOfInvokes g1  ++ namesOfInvokes g2
-    namesOfInvokes (Fresh _ g)     = namesOfInvokes g
-    namesOfInvokes (Invoke name _) = [name]
-    namesOfInvokes (Let _ _)       = error "LET"
-
------------------------------------------------------------------------------------------------------
-
-initDefsByNames :: IO (M.Map Name Def)
-initDefsByNames = do
-  let
-      inDirName = "../resources/"
-      inFileNames = (inDirName ++) <$> ["list", "num", "bool", "programs"]
-  listListDefs <- mapM
-                    (\fileName -> do
-                        input <- readFile fileName
-                        return . defsAsts $ input
-                    )
-                    inFileNames
-  return . M.fromList . fmap (\def@(Def name _ _) -> (name, def)) . concat $ listListDefs
-
-instance Show Program where
-  show (Program defs goal) = unlines ["Program:", show goal, show defs]
 
 main :: IO ()
 main = do
-  nameToDef <- initDefsByNames
-{-
-  -- print all defs by splitByStructure
-  mapM_
-    (print . defsByNames nameToDef)
-    splitByStructure
--}
-  putStrLn "======================================================================================\n\n"
-{-
-  let appendoProgram    = createProgram nameToDef (fresh ["x", "y", "xy"] $ Invoke "appendo" [V "x", V "y", V "xy"])
-      maxLengthoProgram = createProgram nameToDef (fresh ["x"] $ Invoke "maxLengtho" [V "x"])
-  print appendoProgram
-  print $ translate appendoProgram [("xy", In)] -- [("x", In), ("y", In)]
--}
-{-
-  let reversoProgram = createProgram nameToDef (fresh ["x", "y"] $ Invoke "reverso" [V "x", V "y"])
-  print reversoProgram
-  print $ translate reversoProgram [("x", In)]
--}
-{-
-  let plainEvaloProgram = plainQuery'
-  print plainEvaloProgram
-  let (goal, stack) = translate plainEvaloProgram [("res", In)]
-  print goal
--}  
-  let reversoProgram = createProgram nameToDef (fresh ["xs", "acc", "sx"] $ Invoke "revacco" [V "xs", V "acc", V "sx"])
-  print reversoProgram
-  let (goal, stack) = translate reversoProgram [("xs", In)]
-  print goal
-  putStrLn ""
-  mapM_ print $ M.toList . fmap S.toList $ stack
+  hspec $ do
+-----------------------------------------------------------------------------------------------------
+    describe "appendo" $ do
+      it "IN IN OUT" $ do
+        appendoIIO ([1..3] :: [Int]) [4..5] `shouldBe` [[1..5]]
+      it "OUT OUT IN" $ do
+        appendoOOI ([1..3] :: [Int]) `shouldBe` [([],[1,2,3]),([1],[2,3]),([1,2],[3]),([1,2,3],[])]
+      it "IN OUT OUT" $ do
+        take 5 (appendoIOO ([1..3] :: [Int])) `shouldBe` [([],[1,2,3]),([0],[1,2,3,0]),([1],[1,2,3,1]),([2],[1,2,3,2]),([0,0],[1,2,3,0,0])]
+      it "OUT IN OUT" $ do
+        take 5 (appendoOIO ([1..3] :: [Int])) `shouldBe` [([],[1,2,3]),([0],[0,1,2,3]),([0,0],[0,0,1,2,3]),([0,0,0],[0,0,0,1,2,3]),([0,0,0,0],[0,0,0,0,1,2,3])]
+      it "OUT IN IN" $ do
+        appendoOII ([4, 5] :: [Int]) ([1..5] :: [Int]) `shouldBe` [[1..3]]
+      it "IN OUT IN" $ do
+        appendoIOI ([1..3] :: [Int]) ([1..5] :: [Int]) `shouldBe` [[4, 5]]
+-----------------------------------------------------------------------------------------------------
+    describe "appendoPat" $ do
+      it "IN IN OUT" $ do
+        appendoPatIIO ([[1..3], [4, 5]] :: [[Int]]) [[4..5], [6..8]] `shouldBe` [[[1,2,3],[4,5],[4,5],[6,7,8]]]
+      it "IN OUT OUT" $ do
+        take 5 (appendoPatIOO ([[1..3], [4, 5]] :: [[Int]])) `shouldBe` [([],[[1,2,3],[4,5]]),([[]],[[1,2,3],[4,5],[]]),([[0]],[[1,2,3],[4,5],[0]]),([[1]],[[1,2,3],[4,5],[1]]),([[2]],[[1,2,3],[4,5],[2]])]
+      it "IN OUT IN" $ do
+        appendoPatIOI ([[1..3], [4, 5]] :: [[Int]]) [[1..3],[4,5],[4,5],[6..8]] `shouldBe` [[[4,5],[6,7,8]]]
+-----------------------------------------------------------------------------------------------------
+    describe "appendoCtorsUnif" $ do
+      it "IN IN OUT" $ do
+        appendoCtorsUnifIIO ([[1..3], [4, 5]] :: [[Int]]) [[4..5], [6..8]] `shouldBe` [[[1,2,3],[4,5],[4,5],[6,7,8]]]
+-----------------------------------------------------------------------------------------------------
+    describe "appendoAssign" $ do
+      it "IN IN OUT" $ do
+        appendoAssignIIO ([1, 1] :: [Int]) [1..3] `shouldBe` [[1, 1, 1, 2, 3]]
+      it "OUT OUT IN" $ do
+        appendoAssignOOI ([1, 1, 1, 2, 3] :: [Int]) `shouldBe` [([],[1,1,1,2,3]),([1],[1,1,2,3]),([1,1],[1,2,3])]
+      it "IN OUT OUT" $ do
+        True `shouldBe` False
+--        take 5 (appendoAssignIOO ([1, 1] :: [Int])) `shouldBe` []
+      it "OUT IN OUT" $ do
+        True `shouldBe` False
+--        take 5 (appendoAssignOIO ([1..3] :: [Int])) `shouldBe` []
+      it "OUT IN IN" $ do
+        appendoAssignOII ([1..3] :: [Int]) ([1, 1, 1, 2, 3] :: [Int]) `shouldBe` [[1, 1]]
+      it "IN OUT IN" $ do
+        appendoAssignIOI ([1, 1] :: [Int]) ([1, 1, 1, 2, 3] :: [Int]) `shouldBe` [[1..3]]
+-----------------------------------------------------------------------------------------------------
+    describe "doubleAppendo" $ do
+      it "IN OUT" $ do
+        doubleAppendoIO ([1..3] :: [Int]) `shouldBe` [[1, 2, 3, 1, 2, 3]]
+      it "OUT IN" $ do
+        doubleAppendoOI ([1, 2, 3, 1, 2, 3] :: [Int]) `shouldBe` [[1,2,3]]
+-----------------------------------------------------------------------------------------------------
+    describe "lengtho" $ do
+      it "IN OUT" $ do
+        lengthoIO ([1..5] :: [Int]) `shouldBe` [5]
+      it "OUT IN | gen type: [Int]" $ do
+        True `shouldBe` True
+--        lengthoOI (i2p 3) `shouldBe` [[0,0,0],[0,0,1],[0,0,2],[0,1,0],[0,1,1],[0,1,2],[0,2,0],[0,2,1],[0,2,2],[1,0,0],[1,0,1],[1,0,2],[1,1,0],[1,1,1],[1,1,2],[1,2,0],[1,2,1],[1,2,2],[2,0,0],[2,0,1],[2,0,2],[2,1,0],[2,1,1],[2,1,2],[2,2,0],[2,2,1],[2,2,2]]
 
 -----------------------------------------------------------------------------------------------------
-
-splitByStructure :: [[Name]]
-splitByStructure = concat $ [
-                     [fresh, unfresh]
-                   , [dnf, undnf]
-                   , [call, uncall]
-                   ]
-  where
-    fresh, unfresh :: [Name]
-    fresh   = [
-                -- bool
-                "oro", "ando"
-                -- list
-              , "appendo", "listo", "membero", "copy", "copy2", "lengtho", "maxo1", "reverso", "revacco"
-                -- num
-              , "notZero", "addo", "mulo", "leo", "gto"
-                -- programs
-              , "doubleAppendo", "singletonReverso", "isNum", "genLists", "has5", "eveno", "test", "go"
-              ]
-    unfresh = [
-                -- bool
-                "nando", "noto"
-                -- list
-              , "inBotho", "nilo", "singletono", "maxLengtho", "copy2", "copycopy", "maxo"
-                -- num
-              , "geo", "lto"
-                -- programs
-              , "palindromo", "doubleo", "emptyAppendo", "appendo123", "appendoXyz", "is5", "check5", "checkList5", "checkList51", "makeX", "makeY", "makeA", "makeB"
-              ]
-
-    dnf, undnf :: [Name]
-    dnf   = [
-              -- bool
-              "nando", "noto", "oro", "ando"
-              -- list
-            , "appendo", "listo", "inBotho", "nilo", "singletono", "maxLengtho", "copy", "copy2", "copycopy", "lengtho", "maxo1", "maxo", "reverso", "revacco"
-              -- num
-            , "notZero", "addo", "mulo", "leo", "gto", "geo", "lto"
-              -- programs
-            , "doubleAppendo", "singletonReverso", "isNum", "genLists", "has5", "eveno", "test", "go", "palindromo", "doubleo", "emptyAppendo", "appendo123", "appendoXyz", "is5", "check5", "checkList5", "checkList51", "makeX", "makeY", "makeA", "makeB"
-            ]
-    undnf = [
-              -- list
-              "membero"
-            ]
-
-    call, uncall :: [Name]
-    call   = [
-               -- bool
-               "noto", "oro", "ando"
-               -- list
-             , "appendo", "listo", "membero", "inBotho", "maxLengtho", "copy", "copy2", "copycopy", "lengtho", "maxo1", "maxo", "reverso", "revacco"
-               -- num
-             , "addo", "mulo", "leo", "gto", "geo", "lto"
-               -- programs
-             , "doubleAppendo", "singletonReverso", "genLists", "has5", "eveno", "test", "go", "palindromo", "doubleo", "emptyAppendo", "appendo123", "appendoXyz", "check5", "checkList5", "checkList51"
-             ]
-    uncall = [
-               -- bool
-               "nando"
-               -- list
-             , "nilo", "singletono" 
-               -- num
-             , "notZero"
-               -- programs
-             , "is5", "isNum", "makeX", "makeY", "makeA", "makeB"
-             ]
-
-
--- there are calls but not recursive
--- no < self < cyclic: if no and self -> self
-splitByRecursion :: [[Name]]
-splitByRecursion = [no, self, cyclic]
-  where
-    no, self, cyclic :: [Name]
-    no     = [
-               -- bool
-               "nando", "noto", "oro", "ando"
-               -- list
-             , "maxLengtho", "copycopy", "maxo"
-               -- num
-             , "geo", "lto"
-               -- programs
-             , "reverso", "doubleAppendo", "doubleo", "emptyAppendo", "appendo123", "appendoXyz", "singletonReverso", "check5", "checkList5", "checkList51", "eveno", "test", "go"
-             ]
-    self   = [
-               -- list
-               "appendo", "listo", "membero", "copy", "copy2", "lengtho", "maxo1", "reverso", "revacco"
-               -- num
-             , "addo", "mulo", "leo", "gto" 
-               -- programs
-             , "getLists", "has5"
-             ]
-    cyclic = [
-             ]
-
-{-
-splitByInput :: [[Name]]
-splitByInput = [predicate, function]
-  where
-    predicate, function :: [Name]
-    predicate = [
-               
-                ]
-    function  = [
-
-                ]
-
-
-splitByOutput :: [[Name]]
-splitByOutput = [no, one, many]
-  where
-    no, one, many :: [Name]
-    no   = [
-
-           ]
-    one  = [
-
-           ]
-    many = [
-
-           ]
--}
-
+    describe "reverso: reversoRev checks the same but more complicated example" $ do
+      it "IN OUT" $ do
+        True `shouldBe` True
+--        reversoIO ([1, 2, 3] :: [Int]) `shouldBe` [[3, 2, 1]]
+      it "OUT IN" $ do
+        True `shouldBe` True
+--        reversoOI ([3, 2, 1] :: [Int]) `shouldBe` [[1, 2, 3]]
 -----------------------------------------------------------------------------------------------------
+    describe "reversoRev" $ do
+      it "IN OUT" $ do
+        reversoRevIO ([1, 2, 3] :: [Int]) `shouldBe` [[3, 2, 1]]
+      it "OUT IN" $ do
+        reversoRevOI ([3, 2, 1] :: [Int]) `shouldBe` [[1, 2, 3]]
+-----------------------------------------------------------------------------------------------------
+    describe "revacco" $ do
+      it "IN OUT OUT | gen type: [[Int]]" $ do
+        True `shouldBe` False
+--        take 5 (revaccoIOO ([1, 2] :: [Int])) `shouldBe` [([],[2,1]),([0],[2,1,0]),([1],[2,1,1]),([2],[2,1,2]),([0,0],[2,1,0,0])]
+      it "OUT IN OUT | gen type: [Int] | INF | FAIL" $ do
+        True `shouldBe` False
+--        take 5 (revaccoOIO ([1, 2] :: [Int])) `shouldBe` []
+      it "OUT OUT IN | INF" $ do
+        take 4 (revaccoOOI ([1..3] :: [Int])) `shouldBe` [([],[1,2,3]),([1],[2,3]),([2,1],[3]),([3,2,1],[])]
+      it "IN IN OUT" $ do
+        revaccoIIO ([1..3] :: [Int]) ([0, -1] :: [Int]) `shouldBe` [[3, 2, 1, 0, -1]]
+      it "IN OUT IN" $ do
+        revaccoIOI ([1..3] :: [Int]) ([3, 2, 1, 4, 5] :: [Int]) `shouldBe` [[4, 5]]
+      it "OUT IN IN | INF" $ do
+        take 1 (revaccoOII ([4, 5] :: [Int]) ([3, 2, 1, 4, 5] :: [Int])) `shouldBe` [[1..3]]
+-----------------------------------------------------------------------------------------------------
+
