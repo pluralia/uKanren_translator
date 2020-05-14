@@ -1,13 +1,34 @@
 \section{Разработка транслятора}
 \label{translator}
 
-Эта глава посвящена разработке алгоритма трансляции \miniKanren{} в абстрактный функциональный язык программирования.
-В первой части рассказывается об особенностях трансляции \miniKanren{}.
-Абстрактное синтаксическое дерево функционального языка приводится во второй части.
-Третья часть описывает алгоритм трансляции.
-Ограничения подхода находятся в четвертой части.
+Этот раздел посвящен разработке алгоритма трансляции \miniKanren{} в абстрактный функциональный язык программирования.
+В первой части рассказывается об особенностях \miniKanren{} и способах транслировать программу с этими особенностями.
+Вторая часть посвящена построению абстрактного синтаксическое дерева функционального языка с учётом особенностей трансляции \miniKanren{}.
+Общее описание алгоритма трансляции находится в третьей части.
+Четвёртая часть посвящена доказательству сохранения семантики программы на \miniKanren{} в наборе функций, полученных после работы алгоритма трансляции.
+
+В нескольких частях примеры отсылаются к одному и тому же отношению $append^o$ (см. рисунок~\ref{lst:appendo}).
+Оно связывает три списка, первые два из которых являются конкатенацией третьего.
+
+\begin{figure}[h!]
+  \begin{center}
+  \begin{minipage}{0.4\textwidth}
+  \begin{lstlisting}[language=Haskell, frame=single, numbers=left,numberstyle=\small, firstnumber=1, escapechar=|]
+  $append^o$ $x$ $y$ $z$ =
+    ($x$ $\equiv$ [] $\wedge$ $y$ $\equiv$ $z$) $\vee$ |\label{line:appendo2}|
+    (fresh [h, t, r] (
+        $x$ $\equiv$ $h$ : $t$ $\wedge$ |\label{line:appendo4}|
+        $z$ $\equiv$ $h$ : $r$ $\wedge$ |\label{line:appendo5}|
+        $append^o$ $t$ $y$ $r$ |\label{line:appendo6}|
+    ))
+    \end{lstlisting}
+  \end{minipage}
+  \end{center}
+  \caption{Отнощение $append^o$}
+  \label{lst:appendo}
+\end{figure}
 
 \input{contents/chapter3/mkproblems}
-\input{contents/chapter3/trproblems}
+\input{contents/chapter3/ast}
 \input{contents/chapter3/algo}
 \input{contents/chapter3/semantics}
