@@ -1,0 +1,178 @@
+\subsection{Особенности трансляции}
+
+В предыдущем разделе были разобраны особенности трансляции, связанные с \miniKanren{}.
+В этом --- особенности, проявившиеся в процессе разработки алгоритма трансляции.
+
+Все рассматриваемые в данном разделе примеры являются результатом трансляции отношения $append^o$ в различных направлениях.
+Само отношение $append^o$ на \miniKanren{} представлено на рисунке~\ref{lst:appendoOOIANN}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Сопоставление с образцом для входных переменных}
+
+Сопоставление с образцом --- хороший способ "отсеять" заведомо ложные вычисления, используя информацию о типе конструктора аргумента.
+В качестве примера рассмотрим трансляцию $append^o$ в прямом направлении приведена на рисунке~\ref{lst:appendoIIOTR}).
+Дизъюнкты исходного отношения $append^o$ (см. рисунок~\ref{lst:appendoOOI}) содержат унификации первого аргумента, являющегося входным: первый дизъюнкт --- унификацию с пустым списком (строка~\ref{line:appendoOOIANN2}), второй --- с непустым (строка~\ref{line:appendoOOIANN4}).
+При трансляции такие унификации превращаются в сопоставление с образцом (см. строки~\ref{line:appendoIIOTR2} и~\ref{line:appendoIIOTR6}).
+Как результат --- если первый аргумент функции является пустым списком, то успешно вычислится только $appendoIIO0$.
+
+\begin{figure}[h!]
+  \begin{center}
+  \begin{minipage}{0.7\textwidth}
+  \begin{lstlisting}[language=Haskell, frame=single, numbers=left,numberstyle=\small, firstnumber=1, escapechar=|]
+        appendoIIO x0 x1 = appendoIIO0 x0 x1 ++ appendoIIO1 x0 x1
+        appendoIIO0 s3$@$[] s0 = do                                  |\label{line:appendoIIOTR2}|
+          let s4 = s0
+          return $\$$ (s4)
+        appendoIIO0 _ _ = []                                         |\label{line:appendoIIOTR5}|
+        appendoIIO1 s3$@$(s5 : s6) s0 = do                           |\label{line:appendoIIOTR6}|
+          (s7) <- appendoIIO s6 s0
+          let s4 = (s5 : s7)
+          return $\$$ (s4)
+        appendoIIO1 _ _ = []                                         |\label{line:appendoIIOTR10}|
+    \end{lstlisting}
+  \end{minipage}
+  \end{center}
+  \caption{Трансляция $append^o$ в прямом направлении}
+  \label{lst:appendoIIOTR}
+\end{figure}
+
+Стоит отметить, зачем нужны~\ref{line:appendoIIOTR5} и~\ref{line:appendoIIOTR10} строки.
+Они представляют собой сопоставление с образцом, которое всегда завершится успехом, однако, они не влияют на результат вычисления, так как возвращают пустой список.
+$appendoIIO1$, в случае не успешного сопоставления с образцом в строке~\ref{line:appendoIIOTR6}, попытается найти уравнение, в котором сопоставление с образцом пройдёт успешно.
+Если строки~\ref{line:appendoIIOTR10} не будет, то вычисление функции $appendoIIO1$ завершится ошибкой за отсутствием возможности обработать соответствующий вход.
+
+В случае, если в отношении на \miniKanren{} одной переменной-аргументу соответствовало несколько унификаций, для неё появляется возможность выбрать, какая из них станет сопоставлением с образцом.
+Алгоритм выбирает ту из унификаций, которая обеспечит наибольшую вложенность конструкторов.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Перекрытие имён в сопоставлениях с образцом}
+
+Имена переменных, используемых в сопоставлении с образцом, могут совпадать для разных аргументов.
+Например, во втором дизъюнкте $append^o$ на рисунке~\ref{line:appendoOOIANN} есть унификации переменных $x$ и $z$.
+Если мы будем транслировать $append^o$ в направлении со входными первым и третьим аргументами, то получим перекрытие имён переменных.
+Переменная $h$, участвующая в обеих унификациях, перейдёт в оба сопоставления с образцом.
+
+На рисунке~\ref{lst:appendoIOITR} представлен результат трансляции $append^o$ в обсуждаемом направлении.
+Второму дизъюнкту в нем соответствует функция $appendoIOI1$, а переменной $h$ --- переменная $s3$.
+Чтобы избежать перекрытия имён, $s3$ была переименована в $p2$ в сопоставлении с образцом для второго аргумента.
+Переименовывание нарушило условие, созданное при трансляции в данном направлении: оба аргумента-списка должны иметь одинаковую "голову".
+Восстановление этого условия происходит за счёт применения охранного выражения $|~s3~==~s2$.
+
+\begin{figure}[h!]
+  \begin{center}
+  \begin{minipage}{0.9\textwidth}
+  \begin{lstlisting}[language=Haskell, frame=single, numbers=left,numberstyle=\small, firstnumber=11, escapechar=|]
+        appendoIOI x0 x1 = appendoIOI0 x0 x1 ++ appendoIOI1 x0 x1
+        appendoIOI0 s0$@$[] s2@s1 = return $\$$ (s1)
+        appendoIOI0 _ _ = []
+        appendoIOI1 s0$@$(s3 : s4) s2$@$(p2 : s5) $|$ s3 == p2 = do
+          (s1) <- appendoIOI s4 s5
+          return $\$$ (s1)
+        appendoIOI1 _ _ = []
+    \end{lstlisting}
+  \end{minipage}
+  \end{center}
+  \caption{Трансляция $append^o$ в направлении со входными первым и третьим аргументами}
+  \label{lst:appendoIOITR}
+\end{figure}
+
+Здесь же стоит заметить ещё одну особенность: рядом каждым сопоставлением с образцом существует его псевдоним.
+Этот псевдоним --- исходное имя входной переменной то замены на сопоставление с образцом.
+Его необходимо сохранить для случая, если внутри тела функции потребуется именно эта переменная, а не переменные из сопоставления с образцом.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Перекрытие имён в определениях}
+
+Переменные в определениях так же могут совпадать, однако, для них нельзя использовать охранные выражения.
+Использовать ветвление.
+
+На рисунке~\ref{lst:appendoAssign} представлено модифицированное отношение $apppend^o$.
+Оно связывает три списка таких, что первый является повтором первого элемента второго списка, а третий --- конкатенацией первого и второго списков.
+
+\begin{figure}[h!]
+  \begin{center}
+  \begin{minipage}{0.5\textwidth}
+  \begin{lstlisting}[language=Haskell, frame=single, numbers=left,numberstyle=\small, firstnumber=8, escapechar=|]
+  $append^oAssign$ $x$ $y$ $z$ =
+    ($x$ $\equiv$ [] $\wedge$                     |\label{line:appendoAssign2}|
+     $y$ $\equiv$ $z$) $\vee$                     |\label{line:appendoAssign3}|
+    (fresh [h, t, r, p, ps, c, cs] (
+        $x$ $\equiv$ $h$ : $t$ $\wedge$           |\label{line:appendoAssign5}|
+        $z$ $\equiv$ $h$ : $r$ $\wedge$           |\label{line:appendoAssign6}|
+        $z$ $\equiv$ $p$ : ($p$ : $ps$) $\wedge$ |\label{line:appendoAssign7}|
+        $z$ $\equiv$ $c$ : ($c$ : $cs$) $\wedge$ |\label{line:appendoAssign8}|
+        $append^oAssign$ $t$ $y$ $r$              |\label{line:appendoAssign9}|
+    ))
+    \end{lstlisting}
+  \end{minipage}
+  \end{center}
+  \caption{Отношение $append^oAssign$}
+  \label{lst:appendoAssign}
+\end{figure}
+
+Рассмотрим результат его трансляции в обратном направлении, представленный на рисунке~\ref{lst:appendoAssignOOITR}).
+Строка~\ref{line:appendoAssignOOITR8} содержит определение, полученного из унификации $z~\equiv~c~:~(c~:~cs)$.
+Переменная $c$ здесь стала переменной $s6$ и получили определение $let~(s6~:~(s6~:~s7))~=~s2$.
+Как и в случае аналогичной проблемы с сопоставлением с образцом, переименуем повторившуюая переменную.
+После чего необходимо добавить проверку на равенство исходной и переменной-замены.
+Все такие проверки накапливаются и происходят в конце --- перед возвратом значения.
+Так, в~\ref{line:appendoAssignOOITR8} строке показано, что в случае невыполнения условия необходимо вернуть пустой список.
+Если условие выполняется, то возвращается результат.
+
+\begin{figure}[h!]
+  \begin{center}
+  \begin{minipage}{1\textwidth}
+  \begin{lstlisting}[language=Haskell, frame=single, numbers=left,numberstyle=\small, firstnumber=18, escapechar=|]
+        appendoAssignOOI x0 = appendoAssignOOI0 x0 ++ appendoAssignOOI1 x0
+        appendoAssignOOI0 s2$@$s1 = do
+          let s0 = []
+          return $\$$ (s0, s1)
+        appendoAssignOOI0 _ = []
+        appendoAssignOOI1 s2$@$(s8 : (p2 : s9)) $|$ s8 == p2 = do
+          let (s3 : s5) = s2
+          let (s6 : (c4 : s7)) = s2                 |\label{line:appendoAssignOOITR8}|
+          (s4, s1) <- appendoAssignOOI s5
+          let s0 = (s3 : s4)
+          if (s6 == c4) then return $\$$ (s0, s1) else [] |\label{line:appendoAssignOOITR8}|
+        appendoAssignOOI1 _ = []
+    \end{lstlisting}
+  \end{minipage}
+  \end{center}
+  \caption{Трансляция $append^oAssign$ в обратном направлении}
+  \label{lst:appendoAssignOOITR}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Трансляция конструкторов}
+
+Терм \miniKanren{} может быть произвольным конструктором.
+В этом случае чтобы успешно выполнить полученную после трансляции функцию, необходимо знать, как вычислять данный конструктор.
+При трансляции будем считать, что пользователь сам позаботится о способе вычисления конструктора.
+Так как конструктор является функцией, достаточно её определить.
+
+На рисунке~\ref{lst:peano} приведен один из таких пользовательских конструкторов, реализующих натуральные числа.
+
+\begin{figure}[h!]
+  \begin{center}
+  \begin{minipage}{0.7\textwidth}
+  \begin{lstlisting}[language=Haskell, frame=single, numbers=left,numberstyle=\small, firstnumber=30, escapechar=|]
+        data Peano = O $|$ S Peano
+        
+        p2i :: Peano -> Int
+        p2i O     = 0
+        p2i (S x) = succ $\$$ p2i x
+        
+        i2p :: Int -> Peano
+        i2p 0 = O
+        i2p n $|$ n < 0     = O
+              $|$ otherwise = S (i2p $\$$ pred n)
+    \end{lstlisting}
+  \end{minipage}
+  \end{center}
+  \caption{Тип данных $Peano$ --- определение конструкторов $O$ и $S$}
+  \label{lst:peano}
+\end{figure}

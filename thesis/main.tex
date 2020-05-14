@@ -1,0 +1,53 @@
+%\documentclass[14pt]{spbau-diploma}
+\documentclass{spbau-diploma}
+
+\usepackage{tikz}
+\usepackage{listings}
+\lstdefinestyle{mycode}{
+  belowcaptionskip=1\baselineskip,
+  breaklines=true,
+  xleftmargin=\parindent,
+  showstringspaces=false,
+  basicstyle=\footnotesize\ttfamily,
+  keywordstyle=\bfseries,
+  commentstyle=\itshape\color{gray!40!black},
+  stringstyle=\color{red},
+  numbers=left,
+  numbersep=5pt,
+  numberstyle=\tiny\color{gray},
+}
+\lstset{escapechar=@,style=mycode}
+
+\newcommand{\miniKanren}{\textsc{miniKanren}}
+\newcommand{\mercury}{\textsc{Mercury}}
+\newcommand{\haskell}{\textsc{Haskell}}
+\newcommand{\prolog}{\textsc{Prolog}}
+\newcommand{\scheme}{\textsc{Scheme}}
+\newcommand{\logen}{\textsc{LOGEN}}
+\newcommand{\github}{\textsc{GitHub}}
+\lstset{mathescape=true}
+
+\usepackage{amsmath}
+
+\begin{document}
+
+\input{contents/head}
+
+\maketitle
+\tableofcontents
+
+\input{contents/intro}
+
+\input{contents/chapter1/main}
+\input{contents/chapter2/main}
+\input{contents/chapter3/main}
+\input{contents/chapter4/main}
+
+\input{contents/outro}
+
+\bibliographystyle{ugost2008ls}
+\bibliography{contents/bibfile}
+
+\input{contents/appendices}
+
+\end{document}

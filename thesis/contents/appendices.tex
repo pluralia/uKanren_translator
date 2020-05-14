@@ -1,0 +1,34 @@
+\begin{appendices}
+
+\section{Грамматика языка miniKanren}
+\label{appendix:mk:grammar}
+
+\begin{figure}[!h]
+\begin{boxedminipage}{\linewidth}
+\begin{grammar}
+
+<program> ::= <def>* <goal>
+
+<term> ::= <ident> | `<' <ident> `:' <term>* `>'
+
+<def> ::= `::' <ident> <ident>* `=' <goal>
+
+<goal> ::= <disj> | <fresh> | <invoke>
+
+<fresh> ::= `[' <ident>+ `:' <goal> `]'
+
+<invoke> ::= `{' <ident> <term>* `}'
+
+<disj> ::= <conj> (`\\/' <conj>)*
+
+<conj> ::= <pat> (`/\\' <pat>)*
+
+<pat> ::= <term> `===' <term> | <fin>
+
+<fin> ::= <fresh> | `(' <disj> `)'
+
+\end{grammar}
+\end{boxedminipage}
+\end{figure}
+
+\end{appendices}
