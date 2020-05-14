@@ -8,51 +8,52 @@ Reallocated singl_function (elt_size=4) to 100 items from 50.
 Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
 Reallocated singl_function (elt_size=4) to 100 items from 50.
 Database file #1: IEEEbib.bib.bib
-Warning--I didn't find a database entry for "byrd2017unified"
 -- IEEEtran.bst version 1.12 (2007/01/11) by Michael Shell.
 -- http://www.michaelshell.org/tex/ieeetran/bibtex/
 -- See the "IEEEtran_bst_HOWTO.pdf" manual for usage information.
+Warning--empty booktitle in hemann2013ukanren
+Warning--empty booktitle in leuschel2004prolog
 
 Done.
-You've used 5 entries,
+You've used 8 entries,
             4024 wiz_defined-function locations,
-            838 strings with 7979 characters,
-and the built_in function-call counts, 3492 in all, are:
-= -- 254
-> -- 77
-< -- 20
-+ -- 40
-- -- 14
-* -- 170
-:= -- 513
-add.period$ -- 12
-call.type$ -- 5
-change.case$ -- 4
-chr.to.int$ -- 48
-cite$ -- 5
-duplicate$ -- 259
-empty$ -- 340
-format.name$ -- 19
-if$ -- 806
+            856 strings with 8577 characters,
+and the built_in function-call counts, 5227 in all, are:
+= -- 381
+> -- 121
+< -- 29
++ -- 62
+- -- 23
+* -- 252
+:= -- 783
+add.period$ -- 17
+call.type$ -- 8
+change.case$ -- 8
+chr.to.int$ -- 66
+cite$ -- 10
+duplicate$ -- 394
+empty$ -- 505
+format.name$ -- 30
+if$ -- 1205
 int.to.chr$ -- 0
-int.to.str$ -- 5
-missing$ -- 46
-newline$ -- 38
-num.names$ -- 5
-pop$ -- 129
+int.to.str$ -- 8
+missing$ -- 73
+newline$ -- 47
+num.names$ -- 8
+pop$ -- 200
 preamble$ -- 1
 purify$ -- 0
 quote$ -- 2
-skip$ -- 273
+skip$ -- 413
 stack$ -- 0
-substring$ -- 124
-swap$ -- 183
-text.length$ -- 4
+substring$ -- 167
+swap$ -- 273
+text.length$ -- 7
 text.prefix$ -- 0
 top$ -- 5
-type$ -- 5
-warning$ -- 0
-while$ -- 15
-width$ -- 6
-write$ -- 65
-(There was 1 warning)
+type$ -- 8
+warning$ -- 2
+while$ -- 19
+width$ -- 9
+write$ -- 91
+(There were 2 warnings)

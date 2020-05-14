@@ -1,0 +1,50 @@
+
+\documentclass[conference,a4paper,american]{IEEEtran}
+\usepackage{listings}
+\usepackage{tikz}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{babel}
+\usepackage{hyperref}
+\usepackage{balance}
+
+\newcommand{\miniKanren}{\textsc{miniKanren}}
+
+\begin{document}
+
+\title{Binding-Time Analysis for Relational Programs}
+
+\author{
+\IEEEauthorblockN{Irina Artemeva}
+\textit{ITMO University} \\
+Saint Petersburg, Russia \\
+irinapluralia@gmail.com
+\and
+\IEEEauthorblockN{Ekaterina Verbitskaia}
+\textit{JetBrains Research}\\
+Saint Petersburg, Russia \\
+kajigor@gmail.com
+}
+
+
+\maketitle
+
+\begin{abstract}
+Programs in relational programming are mathematical relations.
+Such relations can be run in different directions: by providing some arguments of a program, one can compute the values of the others.
+The execution of a program in the given direction is not always efficient.
+One way to improve the performance of a relational program is to convert it into a functional program.
+To create a function by a relation, it is necessary to determine the order in which names within the input program are bound with respect to the given direction.
+Binding-time analysis is used to solve this problem in the area of program specialization, but it has not been created for relational programming before.
+In this paper we propose a binding-time analysis algorithm for the relational programming language \miniKanren{}.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Relational programming, binding-time analysis, static analysis
+\end{IEEEkeywords}
+
+\end{document}
+

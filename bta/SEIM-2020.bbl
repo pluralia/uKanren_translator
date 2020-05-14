@@ -21,9 +21,24 @@
 \providecommand{\BIBdecl}{\relax}
 \BIBdecl
 
+\bibitem{SOMOGYI199617}
+Z.~Somogyi, F.~Henderson, and T.~Conway, ``The execution algorithm of mercury,
+  an efficient purely declarative logic programming language,'' \emph{The
+  Journal of Logic Programming}, vol.~29, no.~1, pp. 17 -- 64, 1996,
+  high-Performance Implementations of Logic Programming Systems.
+
+\bibitem{hemann2013ukanren}
+J.~Hemann and D.~P. Friedman, ``ukanren: A minimal functional core for
+  relational programming,'' 2013.
+
 \bibitem{lozov2019relational}
 P.~Lozov, E.~Verbitskaia, and D.~Boulytchev, ``Relational interpreters for
   search problems,'' in \emph{Relational Programming Workshop}, 2019, p.~43.
+
+\bibitem{byrd2017unified}
+W.~E. Byrd, U.~Ballantyne, U.~Rosenblatt, and M.~Might, ``A unified approach to
+  solving seven programming problems (functional pearl),'' in \emph{Relational
+  Programming Workshop}, 2017.
 
 \bibitem{jones1993partial}
 N.~D. Jones, C.~K. Gomard, and P.~Sestoft, \emph{Partial evaluation and
@@ -35,13 +50,13 @@ W.~Vanhoof, M.~Bruynooghe, and M.~Leuschel, ``Binding-time analysis for
   mercury,'' in \emph{Program Development in Computational Logic}.\hskip 1em
   plus 0.5em minus 0.4em\relax Springer, 2004, pp. 189--232.
 
-\bibitem{kam1977monotone}
-J.~B. Kam and J.~D. Ullman, ``Monotone data flow analysis frameworks,'' in
-  \emph{Acta Informatica}.\hskip 1em plus 0.5em minus 0.4em\relax Springer,
-  1977, pp. 305--317.
+\bibitem{leuschel2004prolog}
+M.~Leuschel, S.-J. Craig, M.~Bruynooghe, and W.~Vanhoof, ``Specialising
+  interpreters using offline partial deduction,'' vol. 3049, 01 2004, pp.
+  340--375.
 
-\bibitem{rozplokhas2019certified}
-D.~Rozplokhas, A.~Vyatkin, and D.~Boulytchev, ``Certified semantics for
-  minikanren,'' in \emph{and Relational Programming Workshop}, 2019, p.~80.
+\bibitem{Thiemann1997AUF}
+P.~Thiemann, ``A unified framework for binding-time analysis,'' in
+  \emph{TAPSOFT}, 1997.
 
 \end{thebibliography}
