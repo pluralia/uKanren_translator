@@ -26,10 +26,10 @@ import           Debug.Trace           (trace)
 
 annotateStackWithGen :: E.Gamma -> Stack -> [AnnDef]
 annotateStackWithGen gamma stack =
-  maybe (error "annotateStackWithGen: fail gen") makeStackBeauty . maybeStack $ go
+  maybe (error "annotateStackWithGen: fail gen") makeStackBeauty . maybeStack . go . fixPoint go $ stack
   where
-    go :: Stack
-    go = foldl' annotateIt stack $ argsOrdersForGen $ stack
+    go :: Stack -> Stack
+    go stack = foldl' annotateIt stack $ argsOrdersForGen $ stack
 
     argsOrdersForGen :: Stack -> [(Name, ArgsOrder)]
     argsOrdersForGen =

@@ -8,6 +8,7 @@ module Annotator.Internal.Types (
 
 import           Data.Bifunctor        (bimap)
 import qualified Data.Map.Strict  as M
+import           Data.Maybe            (isNothing, isJust)
 import           Data.List             (groupBy, sortBy, intercalate, permutations, intersect)
 import qualified Data.Set         as S
 import           Text.Printf           (printf)
@@ -33,7 +34,10 @@ data ArgsOrder = ArgsOrder [Ann] [[G (S, Ann)]] [S]
 
 
 instance Eq ArgsOrder where
-  argsOrder1 == argsOrder2 = argsOrder1 <= argsOrder2 || argsOrder2 <= argsOrder1
+  (ArgsOrder anns1 _ _) == (ArgsOrder anns2 _ _) =
+    anns1 == anns2 ||
+    all id (zipWith (\x y -> isNothing x || x == y) anns1 anns2) ||
+    all id (zipWith (\x y -> isNothing y || x == y) anns1 anns2)
 
 
 instance Ord ArgsOrder where

@@ -27,7 +27,7 @@ revaccoIOO1 _ = []
 -------------------------------------------------------------------------------------
 
 -- FAIL
--- call revaccoIOO (and without generation)
+-- call revaccoIOO (and without generation (fixed))
 -- s3 <- (gen :: [Int])
 -- take 10 $ revaccoOIO [1, 2]
 revaccoOIO x0 = revaccoOIO0 x0 ++ revaccoOIO1 x0
@@ -46,7 +46,7 @@ revaccoOIO1 _ = []
 
 -------------------------------------------------------------------------------------
 
--- OK with modifs
+-- OK: maybe modifs
 -- list all results and stick
 -- revaccoOOI [1..3]
 revaccoOOI x0 = revaccoOOI0 x0 ++ revaccoOOI1 x0
@@ -90,7 +90,7 @@ revaccoIOI1 _ _ = []
 
 -- OK with modifs
 -- list all results and stick
--- call revaccoOOI (and without generation)
+-- call revaccoOOI (and without generation (fixed))
 -- revaccoOII [4, 5] [3, 2, 1, 4, 5]
 revaccoOII x0 x1 = revaccoOII0 x0 x1 ++ revaccoOII1 x0 x1
 revaccoOII0 s1 s2@p1 | s1 == p1 = do

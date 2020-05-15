@@ -14,6 +14,12 @@ main = do
   hspec $ do
 -----------------------------------------------------------------------------------------------------
     describe "appendo" $ do
+{-
+      it "IN IN IN: True" $ do
+        take 1 (appendoIII ([1..3] :: [Int]) ([1,5] :: [Int]) ([1, 2, 3, 1, 5] :: [Int])) `shouldBe` [()]
+      it "IN IN IN: False" $ do
+        take 1 (appendoIII ([1..3] :: [Int]) ([1] :: [Int]) ([1, 2, 3, 1, 5] :: [Int])) `shouldBe` []
+-}
       it "IN IN OUT" $ do
         appendoIIO ([1..3] :: [Int]) [4..5] `shouldBe` [[1..5]]
       it "OUT OUT IN" $ do
@@ -26,6 +32,7 @@ main = do
         appendoOII ([4, 5] :: [Int]) ([1..5] :: [Int]) `shouldBe` [[1..3]]
       it "IN OUT IN" $ do
         appendoIOI ([1..3] :: [Int]) ([1..5] :: [Int]) `shouldBe` [[4, 5]]
+
 -----------------------------------------------------------------------------------------------------
     describe "appendoPat" $ do
       it "IN IN OUT" $ do

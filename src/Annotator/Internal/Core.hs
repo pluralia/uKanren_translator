@@ -68,11 +68,15 @@ annotateInternal mainName gamma@(defByName, (_, xToTs), _) = annotateGoal
         -- if all terms are undefined or annotated -- skip it
         isSkippable :: Bool
         isSkippable = {- trace ("INVOKE: " ++ show invokeStack) $ -}
-          all (isNothing . maxAnn) $ terms
+          (all (isNothing . maxAnn) $ terms) || (all (isJust . maxAnn) terms)
 
         -- in stack
         checkInStack :: Bool
-        checkInStack = maybe False (S.member (argsOrder terms [])) $ M.lookup name stack
+        checkInStack =
+          let
+              resetTerms                = fmap (fmap (fmap (const 0))) <$> terms
+              stackTerms                = replaceUndef (Just 1) <$> resetTerms
+           in maybe False (S.member (argsOrder stackTerms [])) $ M.lookup name stack
 
         selfUpdTerms :: [Term (S, Ann)]
         selfUpdTerms =
@@ -92,7 +96,9 @@ annotateInternal mainName gamma@(defByName, (_, xToTs), _) = annotateGoal
               preAnnotatedGoal          = initGoalAnns terms normUnifGoal
 
               resetTerms                = fmap (fmap (fmap (const 0))) <$> terms
-              stackWithTheGoal          = addToStack stack name resetTerms preAnnotatedGoal
+              stackTerms                = replaceUndef (Just 1) <$> resetTerms
+
+              stackWithTheGoal          = addToStack stack name stackTerms preAnnotatedGoal
               goalStack                 = (preAnnotatedGoal, stackWithTheGoal)
               
               (annotatedGoal, updStack) = annotateInternal name updGamma goalStack
@@ -100,7 +106,7 @@ annotateInternal mainName gamma@(defByName, (_, xToTs), _) = annotateGoal
 
               resTerms                  = selfUpdTerms -- if isInvDef then selfUpdTerms else terms
 
-              stackTerms                = replaceUndef (Just 1) <$> resetTerms
+
               updUpdStack               = addToStack updStack name stackTerms annotatedGoal
               resStack                  = updUpdStack -- if isInvDef then updUpdStack else updStack
            in (Invoke name resTerms, resStack)

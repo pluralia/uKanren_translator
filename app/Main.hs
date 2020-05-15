@@ -26,6 +26,11 @@ main = do
 -- GENERAL vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
   let appendoProgram = createProgram nameToDef "appendo" ["x", "y", "xy"]
 -- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  let appendoIII = mkToHsText appendoProgram ["x", "y", "xy"]
+  putStrLn appendoIII
+  appendFile outFileName appendoIII
+
 {-
   -- simple case
   let appendoIIO = mkToHsText appendoProgram ["x", "y"]
@@ -207,6 +212,11 @@ main = do
   putStrLn reversoRevIO
   appendFile outFileName reversoRevIO
 
+  --
+  let reversoRevII = mkToHsText reversoRevProgram ["x", "y"]
+  putStrLn reversoRevII
+  appendFile outFileName reversoRevII
+
   appendFile outFileName 
     "-------------------------------------------------------------------------------------\n"
 
@@ -252,21 +262,31 @@ main = do
 -----------------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------
 {-
--- IMPLICIT RECURSION vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-  let evenoProgram = createProgram nameToDef "eveno" ["n", "res"]
--- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  --
-  let evenoIO = mkToHsText evenoProgram ["n"]
-  putStrLn evenoIO
-  appendFile outFileName evenoIO
+  let antiConsoProgram = createProgram nameToDef "antiConso" ["list", "x", "y"]
 
-  --
-  let evenoOI = mkToHsText reversoRevProgram ["res"]
-  putStrLn evenoOI
-  appendFile outFileName evenoOI
+  let antiConsoOOI = mkToHsText antiConsoProgram ["y"]
+  putStrLn antiConsoOOI
+  appendFile outFileName antiConsoOOI
 
-  appendFile outFileName 
-    "-------------------------------------------------------------------------------------\n"
+
+  let sndoProgram = createProgram nameToDef "sndo" ["list", "x"]
+
+  let sndoIO = mkToHsText sndoProgram ["list"]
+  putStrLn sndoIO
+  appendFile outFileName sndoIO
+
+  let sndoOI = mkToHsText sndoProgram ["x"]
+  putStrLn sndoOI
+  appendFile outFileName sndoOI
+-}
+-----------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------
+{-
+  let appStrProgram = createProgram nameToDef "appStr" ["h", "t", "y", "hty"]
+
+  let appStrIIIO = mkToHsText appStrProgram ["h", "t", "y"]
+  putStrLn appStrIIIO
+  appendFile outFileName appStrIIIO
 -}
 -----------------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------

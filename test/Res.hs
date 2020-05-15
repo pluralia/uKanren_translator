@@ -7,6 +7,8 @@ import Lib.Generator
 
 -------------------------------------------------------------------------------------
 
+-------------------------------------------------------------------------------------
+
 appendoIOO x0 = appendoIOO0 x0 ++ appendoIOO1 x0
 appendoIOO0 s0@[] = do
   s1 <- (gen )
@@ -312,11 +314,13 @@ reversoRevOI1 s1 = do
 reversoRevOI1 _ = []
 
 -------------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------------
 -------------------------------------------------------------------------------------
 
 revaccoIOO x0 = revaccoIOO0 x0 ++ revaccoIOO1 x0
 revaccoIOO0 s0@[] = do
-  s1 <- (gen :: [[Int]])
+  s1 <- (gen )
   let s2 = s1
   return $ (s1, s2)
 revaccoIOO0 _ = []
@@ -335,13 +339,25 @@ revaccoOIO0 s1 = do
   return $ (s0, s2)
 revaccoOIO0 _ = []
 revaccoOIO1 s1 = do
-  s3 <- (gen  :: [Int])
+  s3 <- (gen )
   s4 <- (gen )
   let s5 = (s3 : s1)
   let s0 = (s3 : s4)
   (c1, s2) <- revaccoIOO s4
   if (s5 == c1) then return $ (s0, s2) else []
 revaccoOIO1 _ = []
+
+revaccoIOO x0 = revaccoIOO0 x0 ++ revaccoIOO1 x0
+revaccoIOO0 s4@[] = do
+  s5 <- (gen )
+  let s2 = s5
+  return $ (s5, s2)
+revaccoIOO0 _ = []
+revaccoIOO1 s4@(s0 : s1) = do
+  (s2, c2) <- revaccoIOO s1
+  let (s0 : s5) = s2
+  if (s2 == c2) then return $ (s5, s2) else []
+revaccoIOO1 _ = []
 
 -------------------------------------------------------------------------------------
 
@@ -394,5 +410,17 @@ revaccoOII1 s1 s2 = do
   let s0 = (s3 : s4)
   return $ (s0)
 revaccoOII1 _ _ = []
+
+revaccoOOI x0 = revaccoOOI0 x0 ++ revaccoOOI1 x0
+revaccoOOI0 s2@s5 = do
+  let s4 = []
+  return $ (s4, s5)
+revaccoOOI0 _ = []
+revaccoOOI1 s2 = do
+  (s7, s8) <- revaccoOOI s2
+  let (s6 : s5) = s8
+  let s4 = (s6 : s7)
+  return $ (s4, s5)
+revaccoOOI1 _ = []
 
 -------------------------------------------------------------------------------------

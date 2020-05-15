@@ -7,9 +7,11 @@ module Annotator.Internal.Stack (
   ) where
 
 
+import           Data.Bifunctor        (second)
 import qualified Data.Map.Strict  as M
 import           Data.Maybe            (fromMaybe, isJust, catMaybes, isNothing)
 import qualified Data.Set         as S
+import           Data.List             (nub)
 
 import           Syntax
 
@@ -25,7 +27,17 @@ maybeStack stack =
   let 
       filteredArgsOrderStack = M.map (S.filter argsOrderPred) $ stack
       filteredStack          = M.filter (not . S.null) filteredArgsOrderStack
-   in if filteredArgsOrderStack == filteredStack then Just filteredStack else Nothing
+   in 
+--      trace ("MAYBE STACK: " ++ (show stack) ++ "\n" ++ (show $ getFuncList stack) ++ "\n" ++ (show $ getFuncList filteredStack)) $
+      if getFuncList stack == getFuncList filteredStack then Just filteredStack else Nothing
+
+
+getFuncList :: Stack -> [(Name, [Ann])]
+getFuncList = 
+  nub .
+  concatMap (\(name, aoList) -> (\(ArgsOrder anns _ _) -> (name, anns)) <$> aoList) . 
+  fmap (second S.toList) . 
+  M.toList
 
 ----------------------------------------------------------------------------------------------------
 
