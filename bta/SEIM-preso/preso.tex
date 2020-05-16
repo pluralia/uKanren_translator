@@ -1,0 +1,387 @@
+%% Простая презентация с примером включения программного кода и
+%% пошаговых спецэффектов
+\documentclass{beamer}
+\usetheme{SPbAU}
+%\useoutertheme{infolines}
+\usepackage{tikz}
+\usepackage{fontspec}
+\usepackage{xunicode}
+\usepackage{xltxtra}
+\usepackage{xecyr}
+\usepackage{hyperref}
+\setmainfont[Mapping=tex-text]{DejaVu Serif}
+\setsansfont[Mapping=tex-text]{DejaVu Sans}
+\setmonofont[Mapping=tex-text]{DejaVu Sans Mono}
+\usepackage{polyglossia}
+\setdefaultlanguage{russian}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{stmaryrd}
+\usepackage{mathtools}
+\lstdefinestyle{mycode}{
+  belowcaptionskip=1\baselineskip,
+  breaklines=true,
+  xleftmargin=\parindent,
+  showstringspaces=false,
+  basicstyle=\footnotesize\ttfamily,
+  keywordstyle=\bfseries,
+  commentstyle=\itshape\color{gray!40!black},
+  stringstyle=\color{red},
+  numbers=left,
+  numbersep=5pt,
+  numberstyle=\tiny\color{gray},
+}
+\lstset{escapechar=@,style=mycode,mathescape=true}
+
+\newcommand{\miniKanren}{\textsc{miniKanren}}
+\newcommand{\mercury}{\textsc{Mercury}}
+\newcommand{\haskell}{\textsc{Haskell}}
+\newcommand{\prolog}{\textsc{Prolog}}
+\newcommand{\scheme}{\textsc{Scheme}}
+\newcommand{\logen}{\textsc{LOGEN}}
+\newcommand{\github}{\textsc{GitHub}}
+
+\newcommand{\beginbackup}{
+   \newcounter{framenumbervorappendix}
+   \setcounter{framenumbervorappendix}{\value{framenumber}}
+}
+\newcommand{\backupend}{
+   \addtocounter{framenumbervorappendix}{-\value{framenumber}}
+   \addtocounter{framenumber}{\value{framenumbervorappendix}} 
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title[Анализ времени связывания]{Анализ времени связывания для реляционных программ}
+\institute[JetBrains Research]{
+JetBrains Research, Университет ИТМО
+}
+
+\author[Артемьева И., Вербицкая Е.]{\textbf{Ирина Артемьева}, Екатерина Вербицкая}
+
+\date{16.05.2020}
+
+\begin{document}
+{
+\begin{frame}[fragile]
+  \begin{tabular}{p{4.5cm} p{7cm}}
+   \begin{center}
+      \includegraphics[height=1.5cm]{pictures/jetbrainsResearch.pdf}
+    \end{center}
+    &
+    \begin{center}
+      \includegraphics[height=2.3cm]{pictures/itmo.png}
+    \end{center}
+  \end{tabular}
+  \titlepage
+\end{frame}
+}
+
+\begin{frame}\frametitle{Реляционное программирование}
+\begin{itemize}
+    \item Программы реляционного программирования = математические отношения
+    \item Можно исполнять в различных направлениях: зафиксировав часть аргументов, находить остальные
+    \item $append^o \subseteq [a] \times [a] \times [a]$ --- отношение, связывающее три списка; третий аргумент --- конкатенация первых двух ($?$ --- выходной):
+        \begin{itemize}
+            \item $append^o \ x \ y \ ?$ --- конкатенация $x$ и $y$
+            \item $append^o \ ? \ y \ z$ --- разность $z$ и $y$
+            \item $append^o \ ? \ ? \ z$ --- все пары списков, конкатенация которых равна $z$
+            \item $append^o \ ? \ ? \ ?$ --- все списки отношения
+        \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}\frametitle{Преимущество реляционного программирования}
+Выбор направления: написав одну программу, получаем несколько целевых функций
+    \begin{itemize}
+        \item по интерпретатору языка и набору тестов синтезируем программу
+        \item по предикату "последовательность вершин в графе формирует желаемый путь" синтезируем генератор таких путей
+    \end{itemize}
+\end{frame}
+
+\begin{frame}\frametitle{Язык \miniKanren{}}
+\begin{itemize}
+    \item Основной представитель парадигмы реляционного программирования
+    \item Встраивается в языки общего назначения
+    \item Все языковые конструкции обратимы
+        \begin{itemize}
+            \item в отличие от \prolog{}, который использует необратимую операцию cut, что делает невозможным выполнение по направлениям
+        \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]\frametitle{Абстрактный синтаксис \miniKanren{}}
+Конструкции на примере отношения $append^o$:
+\begin{center}
+\begin{lstlisting}
+:: $append^o$ x y z =
+  (x === [] /\ z === y) \/
+  ([h t r:
+    (x === h $\%$ t /\
+     z === h $\%$ r /\
+     {$append^o$ t y r}])
+\end{lstlisting}
+\end{center}
+\end{frame}
+
+\begin{frame}\frametitle{Проблема скорости вычисления}
+\begin{itemize}
+    \item При написании программы подразумевается конкретное направление, называемое прямым; все другие --- обратные
+    \item Выполнение в обратном направлении обычно крайне неэффективно
+\end{itemize}
+\end{frame}
+
+\begin{frame}\frametitle{Подходы к ускорению выполнения}
+\begin{itemize}
+    \item Специализация
+        \begin{itemize}
+            \item Конъюнктивная частичная дедукция (CPD)
+                \begin{itemize}
+                    \item из отношения удаляются избыточные вычисления, зависимые от известного входа
+                \end{itemize}
+            \item Суперкомпиляция
+                \begin{itemize}
+                    \item отношение исполняется с сохранением истории вычислений --- на её основе происходит оптимизация
+                \end{itemize}
+        \end{itemize}
+    \item \textbf{\emph{Трансляция}}
+        \begin{itemize}
+            \item По отношению с фиксированным направлением генерируется функция на функциональном языке программирования        \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}\frametitle{Трансляция}
+Отношение $+$ Направление $\Mapsto$ Функция
+\begin{itemize}
+    \item Несколько выходных переменных объединятся в кортеж
+    \item Вариативность результа выражается списком
+    \item \textbf{\emph{Неопределённость порядка вычислений}}
+\end{itemize}
+\end{frame}
+
+\lstset{language=haskell}
+\begin{frame}[fragile]\frametitle{Неопределённость порядка вычислений}
+\begin{itemize}
+    \item Рассмотрим порядок вычислений 2 дизъюнкта $append^o$ в прямом и обратном направлении
+\end{itemize}
+\begin{lstlisting}
+:: $append^o$ x y z =
+  (x === [] /\ z === y) \/
+  ([h t r:
+    (x === h $\%$ t /\
+     z === h $\%$ r /\
+     {$append^o$ t y r}])
+\end{lstlisting}
+\begin{tabular}{p{5cm} p{5cm}}
+    \begin{center}
+        \begin{itemize}
+            \item $(h~\%~t)~\coloneqq~x$
+            \item $r~\coloneqq~append^o~t~y$
+            \item $z~\coloneqq~(h~\%~r)$
+            \item $return \ z$
+        \end{itemize}
+    \end{center}
+&
+    \begin{center}
+        \begin{itemize}
+            \item $(h~\%~r)~\coloneqq~z$
+            \item $(t,~y)~\coloneqq~append^o~r$
+            \item $x~\coloneqq~h~\%~t$
+            \item $return \ (x, \ y)$
+        \end{itemize}
+    \end{center}
+\end{tabular}
+\begin{itemize}
+    \item Решение --- \textbf{\emph{анализ времени связывания}}
+\end{itemize}
+\end{frame}
+
+\begin{frame}\frametitle{Анализ времени связывания}
+\begin{itemize}
+    \item Вход: программа на \miniKanren{} и имена входных переменных
+    \item Каждой переменной сопоставляется время её связывания
+    \item Ранее не существовало для \miniKanren{}
+\end{itemize}
+\end{frame}
+
+\begin{frame}\frametitle{Цель и задачи}
+\begin{itemize}
+    \item Цель: указать порядок, в котором имена переменных связываются со значениями
+    \item Задача: разработать алгоритм анализа времени связывания для \miniKanren{}
+\end{itemize}
+\end{frame}
+
+\begin{frame}\frametitle{Аналоги анализа времени связывания}
+\begin{itemize}
+    \item Для offline-специализации
+    %\footnote{N. D. Jones, C. K. Gomard, and P. Sestoft, "Partial evaluation and automatic program generation"}
+        \begin{itemize}
+            \item какие данные известны статически и могут быть учтены при специализации
+        \end{itemize}
+    \item \mercury{} --- для эффективной компиляции
+    %\footnote{W. Vanhoof, M. Bruynooghe and M. Leuschel, "Binding-time  analysis  for  mercury"}
+        \begin{itemize}
+            \item два типа аннотаций --- недостаточно
+            \item использует граф типов --- в \miniKanren{} нет типов
+        \end{itemize}
+    \item \textbf{\emph{Лямбда-исчисление с функциями высшего порядка}}
+    %\footnote{P. Thiemann, "Binding-time analysis for lambda calculus"}
+        \begin{itemize}
+            \item определяется порядок связывания переменных
+            \item типы аннотаций --- $\{ 0, 1, \dots, N\}$
+        \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}\frametitle{Аннотирование}
+\begin{itemize}
+    \item Время связывания переменной --- число или $Undef$ (время связывания неизвестно)
+    \item Процесс подбора чисел назовем \textit{\emth{аннотированием}}
+    \item Изначально входные переменные аннотируются $0$, остальные --- $Undef$ 
+    \item Аннотация никогда не заменяется на меньшую
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]\frametitle{Пример аннотирования $append^o$}
+\begin{itemize}
+    \item Число над переменной --- её аннотация
+    \item Рассмотрим прямое и обратное направление
+\end{itemize}
+\begin{tabular}{p{5.5cm} p{7cm}}
+    \begin{center}
+    \begin{lstlisting}
+:: $append^o$ $x^0$ $y^0$ $z^1$ = 
+  ($x^0$ === [] /\
+   $y^0$ === $z^1$) \/
+  ([h, t, r:
+     $x^0$ === $h^1$ $\%$ $t^1$ /\
+     $z^3$ === $h^1$ $\%$ $r^2$ /\
+     {$append^o$ $t^1$ $y^0$ $r^2$}])
+    \end{lstlisting}
+    \end{center}
+&
+    \begin{center}
+    \begin{lstlisting}
+:: $append^o$ $x^1$ $y^1$ $z^0$ = 
+  ($x^1$ === [] /\
+   $y^1$ === $z^0$) \/
+  ([h, t, r:
+     $x^3$ === $h^1$ $\%$ $t^2$ /\
+     $z^0$ === $h^1$ $\%$ $r^1$ /\
+     {$append^o$ $t^2$ $y^2$ $r^1$}])
+    \end{lstlisting}
+    \end{center}
+\end{tabular}
+\begin{tabular}{p{5cm} p{5cm}}
+    \begin{center}
+        \begin{itemize}
+            \item $(h~\%~t)~\coloneqq~x$
+            \item $r~\coloneqq~append^o~t~y$
+            \item $z~\coloneqq~(h~\%~r)$
+            \item $return \ z$
+        \end{itemize}
+    \end{center}
+&
+    \begin{center}
+        \begin{itemize}
+            \item $(h~\%~r)~\coloneqq~z$
+            \item $(t,~y)~\coloneqq~append^o~r$
+            \item $x~\coloneqq~h~\%~t$
+            \item $return \ (x, \ y)$
+        \end{itemize}
+    \end{center}
+\end{tabular}
+\end{frame}
+
+\begin{frame}\frametitle{Алгоритм аннотирования}
+\begin{itemize}
+    \item Аннотировать отношение = аннотировать все его дизъюнкты
+    \item Аннотировать дизъюнкт = аннотировать все его конъюнкты
+        \begin{itemize}
+            \item Переменная в конъюнктах одного дизъюнкта имеет одну аннотацию --- согласованность аннотаций
+        \end{itemize}
+    \item Аннотировать конъюнкт = аннотировать унификацию или вызов отношения
+\end{itemize}
+\end{frame}
+
+\begin{frame}\frametitle{Аннотирование унификации}
+\begin{itemize}
+    \item $x^{Undef} \ \equiv \ [y^m \ z^n]$ $\rightarrow$ аннотация $x \ = \ max(m, n) + 1$
+    \item $x^{n} \equiv [y^m \ z^{Undef} \ w^k]$ $\rightarrow$ аннотация $z \ = \ n+1$
+    \item $C \ Name \ [t_0^{i_0}, \dots, t_k^{i_k}] \equiv C \ Name \ [s_0^{j_0}, \dots, s_k^{j_k}]$ $\rightarrow$ аннотируем аргументы конструкторов попарно
+    \item Остальные случаи симметричны
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]\frametitle{Аннотирование вызова}
+\begin{itemize}
+    \item Аннотирование самого вызова: $Undef$-аннотации аргументов равны $n \ + \ 1$, где $n$ --- максимальная аннотация аргументов
+        \begin{itemize}
+            \item Аннотирование невозможно, если все аргументы $Undef$ --- недостаточно информации
+        \end{itemize}
+    \item Аннотирование тела вызываемого отношения
+        \begin{itemize}
+            \item Во избежание повторного аннотирования отношения по тому же направлению, сохраним название и направление в ``стеке вызовов''
+        \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]\frametitle{Несколько вызовов в дизъюнкте}
+\begin{itemize}
+    \item Последовательность нескольких вызовов влияет на направления их трансляции
+    \item Пусть $z$ --- входная переменная
+\end{itemize}
+\begin{tabular}{p{3.5cm} p{3.5cm} p{3.5cm}}
+    \begin{center}
+\begin{lstlisting}
+:: $rel^o$ x y $z^0$ =
+    $f^o$ x y $\wedge$
+    $h^o$ $z^0$ y $\wedge$
+    $g^o$ x $z^0$
+\end{lstlisting}
+не достаточно информации
+    \end{center}
+&
+    \begin{center}
+\begin{lstlisting}
+:: $rel^o$ x y $z^0$ =
+    $h^o$ $z^0$ $y^1$ $\wedge$
+    $f^o$ $x^2$ $y^1$ $\wedge$
+    $g^o$ $x^1$ $z^0$
+\end{lstlisting}
+$x \ \coloneqq \ f \ y$
+    \end{center}
+&
+    \begin{center}
+\begin{lstlisting}
+:: $rel^o$ x y $z^0$ =
+    $h^o$ $z^0$ $y^1$ $\wedge$
+    $g^o$ $x^1$ $z^0$ $\wedge$
+    $f^o$ $x^1$ $y^1$
+\end{lstlisting}
+предикат $f \ x \ y$
+    \end{center}
+\end{tabular}
+\begin{itemize}
+    \item Решение: в случае неудавшегося аннотирования запустим алгоритм еще раз, изменив порядок вызовов
+\end{itemize}
+\end{frame}
+
+\begin{frame}\frametitle{Терминируемость алгоритма аннотирования}
+\begin{itemize}
+    \item Повторное аннотирование отношений не производится $\rightarrow$ каждому отношению сопоставляется конечное количество уникальных аннотаций
+    \item В случае нескольких вызовов в дизъюнкте количество перестановок вызовов конечно $\rightarrow$ конечно количество запусков алгоритма
+\end{itemize}
+\end{frame}
+
+\begin{frame}\frametitle{Результаты}
+\begin{itemize}
+    \item Разработан алгоритм анализа времени связывания для \miniKanren{}
+        \begin{itemize}
+            \item он определяет порядок, в котором связываются переменные данного отношения с учётом направления его вычисления
+        \end{itemize}
+    \item Успешно интегрирован в транслятор
+\end{itemize}
+\end{frame}
+
+\end{document}
