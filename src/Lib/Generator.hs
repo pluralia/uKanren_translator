@@ -12,3 +12,6 @@ instance (Generator a) => Generator [a] where
 
 instance Generator Int where
   gen = [0..2]
+
+instance Generator Bool where
+  gen = [False, True]

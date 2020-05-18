@@ -7,7 +7,7 @@ module Translator (
 import           Data.Either          (partitionEithers)
 import           Data.Bifunctor       (bimap, first, second)
 import           Data.Foldable        (foldl')
-import           Data.List            (partition, sortOn, groupBy)
+import           Data.List            (partition, sortOn, groupBy, (\\))
 import qualified Data.Map.Strict as M
 import           Data.Tuple           (swap)
 
@@ -54,9 +54,24 @@ disjToLine args disj =
       sortedAssigns                 = fmap snd . sortOn fst $ annAssigns
       (assignGuardsSec, assigns)    = handleDupVarsInAssigns sortedAssigns
       assignGuards                  = assignGuardsFir ++ assignGuardsSec
+      genAssigns                    = generateIfNotAssign assigns (showS <$> outArgs)
 
       expr = Term . Tuple . fmap showS $ outArgs
-   in Line pats patGuards assigns assignGuards expr 
+   in Line pats patGuards genAssigns assignGuards expr 
+
+-----------------------------------------------------------------------------------------------------
+
+generateIfNotAssign :: [Assign] -> [String] -> [Assign]
+generateIfNotAssign assigns outArgs =
+  let
+      assignedVars = (\(Assign atom _) -> getAtomVars atom) `concatMap` assigns
+      varsForGen   = outArgs \\ assignedVars
+   in assigns ++ ((\var -> Assign (Var var) (Term $ Ctor "gen" [])) <$> varsForGen)
+  where
+    getAtomVars :: Atom -> [String]
+    getAtomVars (Var v)        = [v]
+    getAtomVars (Ctor _ atoms) = getAtomVars `concatMap` atoms
+    getAtomVars (Tuple vs)     = vs
 
 -----------------------------------------------------------------------------------------------------
 

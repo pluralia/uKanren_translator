@@ -1,0 +1,24 @@
+:: permSort l sorted = conde
+  (l === [] /\ sorted === [])
+  ([small s s1:
+     small % s1 === sorted /\ {smallesto l small s} /\ {permSort s s1}])
+
+
+:: smallesto l small restl = conde
+  (small % [] === l /\ restl === [])
+  ([h t rh rt small1:
+     l === h % t /\ restl === rh % rt /\ {smallesto t small1 rt} /\ {minmaxo h small1 small rh}])
+
+
+:: minmaxo a b min max = conde
+  ({leo a b trueo} /\ min === a /\ max === b)
+  ({leo a b falseo} /\ min === b /\ max === a)
+
+{-
+:: leo x y b =
+  x === zero /\ b === <true :> \/
+  [zz:
+    x === succ zz /\ y === zero /\ b === falseo] \/
+  [x1 y1:
+    x === succ x1 /\ y === succ y1 /\ {leo x1 y1 b}]
+-}

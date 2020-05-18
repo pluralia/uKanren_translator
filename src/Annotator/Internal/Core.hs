@@ -57,19 +57,20 @@ annotateInternal mainName gamma@(defByName, (_, xToTs), _) = annotateGoal
         meetTerm (V (s, Nothing)) _       = V (s, fmap succ . maxAnn $ t2) :=: t2
         meetTerm (V (s, ann))     _       = t1 :=: replaceUndef (succ <$> ann) t2
         meetTerm (C _ _)          (C _ _) = error "annotateConj: two ctors unification is forbidden"
-        meetTerm _                _       = let (t2' :=: t1') = t2 `meetTerm` t1 in t1 :=: t2
+        meetTerm _                _       = trace "HERE: --------------- " $ let (t2' :=: t1') = t2 `meetTerm` t1 in t1 :=: t2
     
     annotateConj invokeStack@(invoke@(Invoke name terms), stack)
       | any (not . isVar) terms = error "updTermAnnsByGoal: invoke argument is ctor"
-      | isSkippable  = {- trace (unlines ["skippable"])  -} invokeStack
+--      | isSkippable  = {- trace (unlines ["skippable"])  -} invokeStack
       | checkInStack = {- trace (unlines ["inStack"])    -} (Invoke name selfUpdTerms, stack)
       | otherwise    = {- trace (unlines ["notInStack"]) -} annotateInvoke
       where
+{-
         -- if all terms are undefined or annotated -- skip it
         isSkippable :: Bool
         isSkippable = {- trace ("INVOKE: " ++ show invokeStack) $ -}
           (all (isNothing . maxAnn) $ terms) || (all (isJust . maxAnn) terms)
-
+-}
         -- in stack
         checkInStack :: Bool
         checkInStack =
