@@ -93,7 +93,7 @@ annotateInternal mainName gamma@(defByName, (_, xToTs), _) = annotateGoal
               (unfreshedGoal, updGamma) = U.oneStepUnfold (fst <$> invoke) gamma
 
               normalizedGoal            = U.normalize unfreshedGoal
-              normUnifGoal              = normalizeUnif normalizedGoal
+              normUnifGoal              = trace (name) $ normalizeUnif normalizedGoal
               preAnnotatedGoal          = initGoalAnns terms normUnifGoal
 
               resetTerms                = fmap (fmap (fmap (const 0))) <$> terms
@@ -103,13 +103,11 @@ annotateInternal mainName gamma@(defByName, (_, xToTs), _) = annotateGoal
               goalStack                 = (preAnnotatedGoal, stackWithTheGoal)
               
               (annotatedGoal, updStack) = annotateInternal name updGamma goalStack
---              isInvDef                  = disjStackPred name (concat annotatedGoal, updStack) 
 
-              resTerms                  = selfUpdTerms -- if isInvDef then selfUpdTerms else terms
-
+              resTerms                  = selfUpdTerms
 
               updUpdStack               = addToStack updStack name stackTerms annotatedGoal
-              resStack                  = updUpdStack -- if isInvDef then updUpdStack else updStack
+              resStack                  = updUpdStack
            in (Invoke name resTerms, resStack)
 
     annotateConj _                  = error "annotateConj: forbidden goal for conj"

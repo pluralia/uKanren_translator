@@ -7,7 +7,7 @@ module Annotator.Internal.Normalization (
 
 import           Data.Bifunctor        (first, second, bimap)
 import           Data.Foldable         (foldl')
-import           Data.Maybe            (catMaybes)
+import           Data.Maybe            (catMaybes, isJust, fromJust)
 import qualified Data.Map.Strict  as M
 import           Data.List             (intercalate, nub)
 import qualified Data.Set         as S
@@ -22,15 +22,17 @@ import           Debug.Trace           (trace)
 
 ----------------------------------------------------------------------------------------------------
 
-normalizeUnif :: [[G a]] -> [[G a]]
-normalizeUnif = fmap (concatMap go)
+normalizeUnif :: [[G S]] -> [[G S]]
+normalizeUnif x =
+  let res = fmap (concatMap fromJust) . filter (all isJust) . fmap (fmap go) $ x
+   in trace ("UNIFICATION: " ++ (show res) ++ "\n") $ res
   where
-    go :: G a -> [G a]
+    go :: G S -> Maybe [G S]
     go (C name1 term1 :=: C name2 term2)
       | name1 == name2 &&
-        length term1 == length term2 = go `concatMap` zipWith (:=:) term1 term2
-      | otherwise                    = error "normalizeUnif: failed ctor unification"
-    go goal                          = [goal]
+        length term1 == length term2 = fmap concat . sequence . fmap go $ zipWith (:=:) term1 term2
+      | otherwise                    = Nothing
+    go goal                          = Just [goal]
 
 ----------------------------------------------------------------------------------------------------
 
@@ -172,6 +174,7 @@ unfoldInvoke (defByName, _, _) invInfo@(fNameToNum, specToName) (name, terms) =
       retIfNothing  = ([def], (updFNameToNum, updSpecToName))
       retIfJust     = const ([], invInfo)
    in maybe retIfNothing retIfJust $ M.lookup spec specToName
+
 
 renameGX :: M.Map X (Term X) -> G X -> G X
 renameGX oldToNew = go

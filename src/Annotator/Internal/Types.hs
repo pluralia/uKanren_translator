@@ -35,10 +35,11 @@ data ArgsOrder = ArgsOrder [Ann] [[G (S, Ann)]] [S]
 
 instance Eq ArgsOrder where
   (ArgsOrder anns1 _ _) == (ArgsOrder anns2 _ _) =
-    anns1 == anns2 ||
+    anns1 == anns2
+{-||
     all id (zipWith (\x y -> isNothing x || x == y) anns1 anns2) ||
     all id (zipWith (\x y -> isNothing y || x == y) anns1 anns2)
-
+-}
 
 instance Ord ArgsOrder where
   (ArgsOrder anns1 _ _) <= (ArgsOrder anns2 _ _) = all (\(x, y) -> x <= y) $ zip anns1 anns2
