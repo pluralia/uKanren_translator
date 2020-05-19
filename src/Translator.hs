@@ -61,18 +61,20 @@ disjToLine defNames args disj =
       sortedAssigns                 = fmap snd . sortOn fst $ annAssigns
       (assignGuardsSec, assigns)    = handleDupVarsInAssigns sortedAssigns
       assignGuards                  = assignGuardsFir ++ assignGuardsSec
-      genAssigns                    = generateIfNotAssign assigns (showS <$> outArgs)
+      genAssigns                    = generateIfNotAssign pats assigns (showS <$> outArgs)
 
       expr = Term . Tuple . fmap showS $ outArgs
    in Line pats patGuards genAssigns assignGuards expr 
 
 -----------------------------------------------------------------------------------------------------
 
-generateIfNotAssign :: [Assign] -> [String] -> [Assign]
-generateIfNotAssign assigns outArgs =
+generateIfNotAssign :: [Pat] -> [Assign] -> [String] -> [Assign]
+generateIfNotAssign pats assigns outArgs =
   let
-      assignedVars = (\(Assign atom _) -> getAtomVars atom) `concatMap` assigns
-      varsForGen   = outArgs \\ assignedVars
+      assignVars = (\(Assign atom _) -> getAtomVars atom) `concatMap` assigns
+      patVars    =
+        (\(Pat mb atom) -> let res = getAtomVars atom in maybe res (: res) mb) `concatMap` pats
+      varsForGen = outArgs \\ (assignVars ++ patVars)
    in assigns ++ ((\var -> Assign (Var var) (Term $ Ctor "gen" [])) <$> varsForGen)
   where
     getAtomVars :: Atom -> [String]

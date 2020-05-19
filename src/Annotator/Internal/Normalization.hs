@@ -146,7 +146,7 @@ invokeHandler gamma0 invInfo inv@(Invoke name terms)
       (defs, updInvInfo@(_, specToName)) = unfoldInvoke gamma0 invInfo (name, invokeSpec terms)
       newName       = maybe (error "replaceInvoke: undef invoke") id $ M.lookup spec specToName
       renamedInvoke = Invoke newName (fmap V . makeUniqueVars $ terms)
-     in trace ("SPEC: " ++ show spec ++ " " ++ newName ++ " " ++ show specToName) $ (updInvInfo, (renamedInvoke, defs))
+     in (updInvInfo, (renamedInvoke, defs))
 
 
 -- (source func name TO number of additional funcs, func spec TO name of additional func) ->

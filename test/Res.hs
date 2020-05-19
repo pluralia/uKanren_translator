@@ -36,14 +36,10 @@ minmaxoIIII1 _ _ _ _ = []
 minmaxoOOII x0 x1 = minmaxoOOII0 x0 x1 ++ minmaxoOOII1 x0 x1
 minmaxoOOII0 s2@s0 s3@s1 = do
   () <- leo0extII s0 s1
-  s0 <- (gen )
-  s1 <- (gen )
   return $ (s0, s1)
 minmaxoOOII0 _ _ = []
 minmaxoOOII1 s2@s1 s3@s0 = do
   () <- leo1extII s0 s1
-  s0 <- (gen )
-  s1 <- (gen )
   return $ (s0, s1)
 minmaxoOOII1 _ _ = []
 
