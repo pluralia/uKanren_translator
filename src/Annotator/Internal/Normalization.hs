@@ -9,7 +9,7 @@ import           Data.Bifunctor        (first, second, bimap)
 import           Data.Foldable         (foldl')
 import           Data.Maybe            (catMaybes, isJust, fromJust)
 import qualified Data.Map.Strict  as M
-import           Data.List             (intercalate, nub)
+import           Data.List             (intercalate, nub, partition)
 import qualified Data.Set         as S
 
 import qualified Eval             as E
@@ -23,9 +23,7 @@ import           Debug.Trace           (trace)
 ----------------------------------------------------------------------------------------------------
 
 normalizeUnif :: [[G S]] -> [[G S]]
-normalizeUnif x =
-  let res = fmap (concatMap fromJust) . filter (all isJust) . fmap (fmap go) $ x
-   in trace ("UNIFICATION: " ++ (show res) ++ "\n") $ res
+normalizeUnif = fmap (concatMap fromJust) . filter (all isJust) . fmap (fmap go)
   where
     go :: G S -> Maybe [G S]
     go (C name1 term1 :=: C name2 term2)
@@ -37,24 +35,27 @@ normalizeUnif x =
 ----------------------------------------------------------------------------------------------------
 
 normalizeInvokes :: Program -> Program
-normalizeInvokes = fixPoint normalizeInvokesInternal 
+normalizeInvokes program@(Program scope _) =
+  let
+    initInvInfo    = (M.fromList . fmap (\(Def name _ _) -> (name, 0)) $ scope, M.empty)
+   in snd $ fixPoint normalizeInvokesInternal (initInvInfo, program)
 
 
-normalizeInvokesInternal :: Program -> Program
-normalizeInvokesInternal (Program scope goal) =
+normalizeInvokesInternal :: ((M.Map Name Int, M.Map Name Name), Program) -> ((M.Map Name Int, M.Map Name Name), Program)
+normalizeInvokesInternal (initInvInfo, (Program scope goal)) =
   let
       gamma0         = E.updateDefsInGamma E.env0 scope
       replaceInvokeG = replaceInvoke gamma0
-      initInvInfo    = (M.fromList . fmap (\(Def name _ _) -> (name, 0)) $ scope, M.empty)
+
       (invInfo, (updGoal, goalDefs))  = replaceInvokeG "" initInvInfo goal
-      (_, (replacedScope, scopeDefs)) = 
+      (resInvInfo, (replacedScope, scopeDefs)) = 
         foldr
           (\(Def n as goal) (sTN, (acc, defs)) ->
               second (bimap ((: acc) . (Def n as)) (++ defs)) $ replaceInvokeG n sTN goal)
           (invInfo, ([], []))
           scope
       updScope = removeRepeatingDefs $ goalDefs ++ scopeDefs ++ replacedScope
-   in Program updScope updGoal
+   in (resInvInfo, Program updScope updGoal)
   where
     removeRepeatingDefs :: [Def] -> [Def]
     removeRepeatingDefs = 
@@ -145,7 +146,7 @@ invokeHandler gamma0 invInfo inv@(Invoke name terms)
       (defs, updInvInfo@(_, specToName)) = unfoldInvoke gamma0 invInfo (name, invokeSpec terms)
       newName       = maybe (error "replaceInvoke: undef invoke") id $ M.lookup spec specToName
       renamedInvoke = Invoke newName (fmap V . makeUniqueVars $ terms)
-     in (updInvInfo, (renamedInvoke, defs))
+     in trace ("SPEC: " ++ show spec ++ " " ++ newName ++ " " ++ show specToName) $ (updInvInfo, (renamedInvoke, defs))
 
 
 -- (source func name TO number of additional funcs, func spec TO name of additional func) ->
@@ -155,7 +156,6 @@ unfoldInvoke :: E.Gamma ->
                 (Name, [Term X]) ->
                 ([Def], (M.Map Name Int, M.Map Name Name))
 unfoldInvoke (defByName, _, _) invInfo@(fNameToNum, specToName) (name, terms) =
---  trace ("TERMS: " ++ (show terms)) $
   let
       num           = maybe (error "unfoldInvokes: undef invoke") id $ M.lookup name fNameToNum
       newName       = name ++ (show num) ++ "ext"
@@ -170,7 +170,7 @@ unfoldInvoke (defByName, _, _) invInfo@(fNameToNum, specToName) (name, terms) =
       updFNameToNum = M.insert name (succ num) fNameToNum
       spec          = makeSpec name terms
       updSpecToName = M.insert spec newName specToName
-      
+
       retIfNothing  = ([def], (updFNameToNum, updSpecToName))
       retIfJust     = const ([], invInfo)
    in maybe retIfNothing retIfJust $ M.lookup spec specToName

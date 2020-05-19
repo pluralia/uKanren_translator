@@ -26,11 +26,19 @@ main = do
 -- vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
   let minmaxoProgram = createProgram nameToDef "minmaxo" ["a", "b", "min", "max"]
 -- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
+{-
   let minmaxoIIOO = mkToHsText minmaxoProgram ["a", "b"]
   putStrLn minmaxoIIOO
   appendFile outFileName minmaxoIIOO
-
+-}
+  let minmaxoOOII = mkToHsText minmaxoProgram ["min", "max"]
+  putStrLn minmaxoOOII
+  appendFile outFileName minmaxoOOII
+{-
+  let minmaxoIIII = mkToHsText minmaxoProgram ["a", "b", "min", "max"]
+  putStrLn minmaxoIIII
+  appendFile outFileName minmaxoIIII
+-}
 -----------------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------
 {-

@@ -44,21 +44,16 @@ isVar (V _) = True
 isVar _     = False
 
 getVarsT :: (Eq a) => Term a -> [a]
-getVarsT = nub . go
-  where
-    go (V v)       = [v]
-    go (C _ terms) = go `concatMap` terms
-
+getVarsT (V v)       = [v]
+getVarsT (C _ terms) = getVarsT `concatMap` terms
 
 getVars :: (Eq a) => G a -> [a]
-getVars = nub . go
- where
-  go (t1 :=: t2)      = getVarsT t1 ++ getVarsT t2
-  go (g1 :/\: g2)     = go g1 ++ go g2
-  go (g1 :\/: g2)     = go g1 ++ go g2
-  go (Invoke _ terms) = getVarsT `concatMap` terms
-  go (Fresh _ g)      = go g
-  go (Let _ _)        = error "LET"
+getVars (t1 :=: t2)      = getVarsT t1 ++ getVarsT t2
+getVars (g1 :/\: g2)     = getVars g1 ++ getVars g2
+getVars (g1 :\/: g2)     = getVars g1 ++ getVars g2
+getVars (Invoke _ terms) = getVarsT `concatMap` terms
+getVars (Fresh _ g)      = getVars g
+getVars (Let _ _)        = error "LET"
 
 ----------------------------------------------------------------------------------------------------
 

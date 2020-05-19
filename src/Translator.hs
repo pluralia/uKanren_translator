@@ -32,25 +32,32 @@ termToAtom (C name terms) = Ctor name . fmap termToAtom $ terms
 -----------------------------------------------------------------------------------------------------
 
 translate :: [AnnDef] -> HsProgram
-translate = HsProgram . fmap translateAnnDef
+translate annDefs =
+  let defNames = makeNewName <$> annDefs
+   in HsProgram . fmap (translateAnnDef defNames) $ annDefs
 
 
-translateAnnDef :: AnnDef -> F
-translateAnnDef (AnnDef name args goal) =
-  let newName = (name ++) . concatMap (\a -> if a == 0 then "I" else "O") . snd . unzip $ args
-   in F newName . fmap (disjToLine args) $ goal
+translateAnnDef :: [Name] -> AnnDef -> F
+translateAnnDef defNames annDef@(AnnDef name args goal) =
+  let newName = makeNewName annDef
+   in F newName . fmap (disjToLine defNames args) $ goal
+
+
+makeNewName :: AnnDef -> Name
+makeNewName (AnnDef name args _) =
+  (name ++) . concatMap (\a -> if a == 0 then "I" else "O") . snd . unzip $ args
 
 -----------------------------------------------------------------------------------------------------
 
-disjToLine :: [(S, A)] -> [Conj] -> Line
-disjToLine args disj =
+disjToLine :: [Name] -> [(S, A)] -> [Conj] -> Line
+disjToLine defNames args disj =
   let
       (inArgs, outArgs) = bimap (fmap fst) (fmap fst) $ partition ((== 0) . snd) args
 
       (dupVarsPats, conjs) = extractPats inArgs disj
       (patGuards, pats)    = handleDupVars 'p' dupVarsPats
 
-      (assignGuardsFir, annAssigns) = partitionEithers . fmap conjToGuardOrAssign $ conjs
+      (assignGuardsFir, annAssigns) = partitionEithers . fmap (conjToGuardOrAssign defNames) $ conjs
       sortedAssigns                 = fmap snd . sortOn fst $ annAssigns
       (assignGuardsSec, assigns)    = handleDupVarsInAssigns sortedAssigns
       assignGuards                  = assignGuardsFir ++ assignGuardsSec
@@ -183,23 +190,33 @@ getMaxAnn (C _ [])    = 0
 getMaxAnn (C _ terms) = maximum $ getMaxAnn <$> terms
 
 
-chooseDirection :: [(S, A)] -> (([S], (A, [S])), String)
-chooseDirection args =
+chooseDirection :: [Name] -> Conj -> (([S], (A, [S])), Name)
+chooseDirection defNames (I name args) =
   let
-    maxAnn    = maximum . fmap snd $ args
-    direction = concatMap (\a -> if a == maxAnn then "O" else "I") . snd . unzip $ args
-   in (bimap (fmap fst) ((maxAnn,) . fmap fst) . partition ((/= maxAnn) . snd) $ args, direction)
+    anns = snd <$> args
+    maxAnn  = maximum anns
+    genAll  = (name ++) . take (length anns) . repeat
+    (isSwp, newName) = if all (== maxAnn) anns
+                        then retResName defNames (genAll 'I') (genAll 'O')
+                        else (False, name ++ (fmap (\ann -> if ann == maxAnn then 'O' else 'I') anns))
+    inOutArgs        = (if isSwp then swap else id) . partition ((/= maxAnn) . snd) $ args
+   in (bimap (fmap fst) ((maxAnn,) . fmap fst) $ inOutArgs, newName)
+  where
+    retResName :: [Name] -> Name -> Name -> (Bool, Name)
+    retResName defNames nameI nameO
+      | nameI `elem` defNames = (True, nameI)
+      | nameO `elem` defNames = (False, nameO)
+      | otherwise             = error $ "Undef function: " ++ nameI ++ " or " ++ nameO 
 
 
-conjToGuardOrAssign :: Conj -> Either Guard (A, Assign)
-conjToGuardOrAssign (U u1 u2)     =
+conjToGuardOrAssign :: [Name] -> Conj -> Either Guard (A, Assign)
+conjToGuardOrAssign _ (U u1 u2)     =
   case compare (getMaxAnn u1) (getMaxAnn u2) of
     LT -> Right (getMaxAnn u2, Assign (termToAtom u2) (Term $ termToAtom u1))
     GT -> Right (getMaxAnn u1, Assign (termToAtom u1) (Term $ termToAtom u2))
     EQ -> Left . Guard . fmap termToAtom $ [u1, u2]
-conjToGuardOrAssign (I name args) =
-  let ((inArgs, (ann, outArgs)), direction) = chooseDirection args
-      newName                             = name ++ direction
+conjToGuardOrAssign defNames inv =
+  let ((inArgs, (ann, outArgs)), newName) = chooseDirection defNames inv
    in Right (ann, Assign (Tuple . fmap showS $ outArgs) (Call newName . fmap (Var . showS) $ inArgs))
 
 -----------------------------------------------------------------------------------------------------
