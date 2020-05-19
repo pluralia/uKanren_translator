@@ -24,9 +24,9 @@ import           Debug.Trace           (trace)
 
 ----------------------------------------------------------------------------------------------------
 
-annotateStackWithGen :: E.Gamma -> Stack -> [AnnDef]
+annotateStackWithGen :: E.Gamma -> Stack -> Stack
 annotateStackWithGen gamma stack =
-  maybe (error "annotateStackWithGen: fail gen") makeStackBeauty . maybeStack . go . fixPoint go $ stack
+  go . fixPoint go $ stack
   where
     go :: Stack -> Stack
     go stack = foldl' annotateIt stack $ argsOrdersForGen $ stack

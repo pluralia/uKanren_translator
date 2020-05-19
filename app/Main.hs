@@ -30,11 +30,21 @@ main = do
   let minmaxoIIOO = mkToHsText minmaxoProgram ["a", "b"]
   putStrLn minmaxoIIOO
   appendFile outFileName minmaxoIIOO
--}
+
   let minmaxoOOII = mkToHsText minmaxoProgram ["min", "max"]
   putStrLn minmaxoOOII
   appendFile outFileName minmaxoOOII
+-}
+
+  let minmaxoIOIO = mkToHsText minmaxoProgram ["a", "min"]
+  putStrLn minmaxoIOIO
+  appendFile outFileName minmaxoIOIO
+
 {-
+  let minmaxoOOOO = mkToHsText minmaxoProgram []
+  putStrLn minmaxoOOOO
+  appendFile outFileName minmaxoOOOO
+
   let minmaxoIIII = mkToHsText minmaxoProgram ["a", "b", "min", "max"]
   putStrLn minmaxoIIII
   appendFile outFileName minmaxoIIII

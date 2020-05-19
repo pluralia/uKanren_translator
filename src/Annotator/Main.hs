@@ -28,8 +28,12 @@ preTranslate program inX =
       gamma                 = trace ("SCOPE: " ++ (show scope)) $ E.updateDefsInGamma E.env0 scope
       (initGamma, initGoal) = initTranslation gamma goal inX
       (_, stack)            = annotate initGamma initGoal
-   in trace ("STACK: " ++ show stack) $
-      maybe (annotateStackWithGen gamma stack) makeStackBeauty . maybeStack $ stack
+      maybeGenStack         =
+        maybe (maybeStack . annotateStackWithGen gamma $ stack) Just . maybeStack $ stack
+      beautifulStack        =
+        maybe (error "annotateStackWithGen: fail gen") makeStackBeauty maybeGenStack
+   in trace ("STACK: " ++ (show stack) ++ "\n\n" ++ (show . fmap (\(AnnDef name _ _) -> name) $ beautifulStack)) $
+      beautifulStack
 
 ----------------------------------------------------------------------------------------------------
 
