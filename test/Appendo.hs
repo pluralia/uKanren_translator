@@ -7,14 +7,6 @@ import Lib.Generator
 
 -------------------------------------------------------------------------------------
 
-appendoIII x0 x1 x2 = appendoIII0 x0 x1 x2 ++ appendoIII1 x0 x1 x2
-appendoIII0 s4@[] s1 s5@p1 | s1 == p1 = return $ ()
-appendoIII0 _ _ _ = []
-appendoIII1 s4@(s6 : s7) s1 s5@(p2 : s8) | s6 == p2 = do
-  (s7, s8) <- appendoOIO s1
-  return $ ()
-appendoIII1 _ _ _ = []
-
 appendoIIO x0 x1 = appendoIIO0 x0 x1 ++ appendoIIO1 x0 x1
 appendoIIO0 s0@[] s1 = do
   let s2 = s1
@@ -28,14 +20,6 @@ appendoIIO1 _ _ = []
 
 -------------------------------------------------------------------------------------
 
-appendoIII x0 x1 x2 = appendoIII0 x0 x1 x2 ++ appendoIII1 x0 x1 x2
-appendoIII0 s4@[] s1 s5@p1 | s1 == p1 = return $ ()
-appendoIII0 _ _ _ = []
-appendoIII1 s4@(s6 : s7) s1 s5@(p2 : s8) | s6 == p2 = do
-  (s7, s8) <- appendoOIO s1
-  return $ ()
-appendoIII1 _ _ _ = []
-
 appendoOOI x0 = appendoOOI0 x0 ++ appendoOOI1 x0
 appendoOOI0 s2@s1 = do
   let s0 = []
@@ -48,14 +32,6 @@ appendoOOI1 s2@(s3 : s5) = do
 appendoOOI1 _ = []
 
 -------------------------------------------------------------------------------------
-
-appendoIII x0 x1 x2 = appendoIII0 x0 x1 x2 ++ appendoIII1 x0 x1 x2
-appendoIII0 s4@[] s1 s5@p1 | s1 == p1 = return $ ()
-appendoIII0 _ _ _ = []
-appendoIII1 s4@(s6 : s7) s1 s5@(p2 : s8) | s6 == p2 = do
-  (s7, s8) <- appendoOIO s1
-  return $ ()
-appendoIII1 _ _ _ = []
 
 appendoIOO x0 = appendoIOO0 x0 ++ appendoIOO1 x0
 appendoIOO0 s0@[] = do
@@ -71,14 +47,6 @@ appendoIOO1 _ = []
 
 -------------------------------------------------------------------------------------
 
-appendoIII x0 x1 x2 = appendoIII0 x0 x1 x2 ++ appendoIII1 x0 x1 x2
-appendoIII0 s4@[] s1 s5@p1 | s1 == p1 = return $ ()
-appendoIII0 _ _ _ = []
-appendoIII1 s4@(s6 : s7) s1 s5@(p2 : s8) | s6 == p2 = do
-  (s7, s8) <- appendoOIO s1
-  return $ ()
-appendoIII1 _ _ _ = []
-
 appendoOII x0 x1 = appendoOII0 x0 x1 ++ appendoOII1 x0 x1
 appendoOII0 s1 s2@p1 | s1 == p1 = do
   let s0 = []
@@ -91,14 +59,6 @@ appendoOII1 s1 s2@(s3 : s5) = do
 appendoOII1 _ _ = []
 
 -------------------------------------------------------------------------------------
-
-appendoIII x0 x1 x2 = appendoIII0 x0 x1 x2 ++ appendoIII1 x0 x1 x2
-appendoIII0 s4@[] s1 s5@p1 | s1 == p1 = return $ ()
-appendoIII0 _ _ _ = []
-appendoIII1 s4@(s6 : s7) s1 s5@(p2 : s8) | s6 == p2 = do
-  (s7, s8) <- appendoOIO s1
-  return $ ()
-appendoIII1 _ _ _ = []
 
 appendoOIO x0 = appendoOIO0 x0 ++ appendoOIO1 x0
 appendoOIO0 s1 = do
@@ -116,14 +76,6 @@ appendoOIO1 _ = []
 
 -------------------------------------------------------------------------------------
 
-appendoIII x0 x1 x2 = appendoIII0 x0 x1 x2 ++ appendoIII1 x0 x1 x2
-appendoIII0 s4@[] s1 s5@p1 | s1 == p1 = return $ ()
-appendoIII0 _ _ _ = []
-appendoIII1 s4@(s6 : s7) s1 s5@(p2 : s8) | s6 == p2 = do
-  (s7, s8) <- appendoOIO s1
-  return $ ()
-appendoIII1 _ _ _ = []
-
 appendoIOI x0 x1 = appendoIOI0 x0 x1 ++ appendoIOI1 x0 x1
 appendoIOI0 s0@[] s2@s1 = return $ (s1)
 appendoIOI0 _ _ = []
@@ -131,4 +83,31 @@ appendoIOI1 s0@(s3 : s4) s2@(p2 : s5) | s3 == p2 = do
   (s1) <- appendoIOI s4 s5
   return $ (s1)
 appendoIOI1 _ _ = []
+
+-------------------------------------------------------------------------------------
+
+appendoIII x0 x1 x2 = appendoIII0 x0 x1 x2 ++ appendoIII1 x0 x1 x2
+appendoIII0 s0@[] s1 s2@p1 | s1 == p1 = return $ ()
+appendoIII0 _ _ _ = []
+appendoIII1 s0@(s3 : s4) s1 s2@(p2 : s5) | s3 == p2 = do
+  () <- appendoIII s4 s1 s5
+  return $ ()
+appendoIII1 _ _ _ = []
+
+-------------------------------------------------------------------------------------
+
+appendoOOO  = appendoOOO0  ++ appendoOOO1 
+appendoOOO0  = do
+  s1 <- (gen :: [[Int]])
+  let s0 = []
+  let s2 = s1
+  return $ (s0, s1, s2)
+appendoOOO1  = do
+  s5 <- (gen )
+  s3 <- (gen )
+  s4 <- (gen )
+  let s2 = (s3 : s5)
+  let s0 = (s3 : s4)
+  (s1) <- appendoIOI s4 s5
+  return $ (s0, s1, s2)
 

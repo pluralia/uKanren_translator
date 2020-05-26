@@ -11,7 +11,7 @@ instance (Generator a) => Generator [a] where
     return (x : xs)
 
 instance Generator Int where
-  gen = [0..6]
+  gen = [0..9]
 
 instance Generator Bool where
   gen = [False, True]
