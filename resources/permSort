@@ -1,13 +1,13 @@
 :: permSort l sorted = conde
   (l === [] /\ sorted === [])
   ([small s s1:
-     small % s1 === sorted /\ {smallesto l small s} /\ {permSort s s1}])
+     sorted === small % s1 /\ {smallesto l small s} /\ {permSort s s1}])
 
 
 :: smallesto l small restl = conde
-  (small % [] === l /\ restl === [])
+  (l === small % [] /\ restl === [])
   ([h t rh rt small1:
-     l === h % t /\ restl === rh % rt /\ {smallesto t small1 rt} /\ {minmaxo h small1 small rh}])
+     l === h % t /\ {smallesto t small1 rt} /\ {minmaxo h small1 small rh} /\ restl === rh % rt])
 
 
 :: minmaxo a b min max = conde

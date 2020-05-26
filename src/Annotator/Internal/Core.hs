@@ -57,7 +57,9 @@ annotateInternal mainName gamma@(defByName, (_, xToTs), _) = annotateGoal
         meetTerm (V (s, Nothing)) _       = V (s, fmap succ . maxAnn $ t2) :=: t2
         meetTerm (V (s, ann))     _       = t1 :=: replaceUndef (succ <$> ann) t2
         meetTerm (C _ _)          (C _ _) = error "annotateConj: two ctors unification is forbidden"
-        meetTerm _                _       = let (t2' :=: t1') = t2 `meetTerm` t1 in t1 :=: t2
+        meetTerm _                _       =
+          let res = t2 `meetTerm` t1
+           in trace ("HERE: "  ++ show t2 ++ " :=: " ++ show t1) $ res
     
     annotateConj invokeStack@(invoke@(Invoke name terms), stack)
       | any (not . isVar) terms = error "updTermAnnsByGoal: invoke argument is ctor"

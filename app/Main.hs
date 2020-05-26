@@ -10,96 +10,61 @@ import           Init
 
 -----------------------------------------------------------------------------------------------------
 
+initModule :: FilePath -> FilePath -> IO FilePath
+initModule outDirName moduleName = do
+  let outFileName = outDirName ++ moduleName ++ ".hs"
+      moduleHead = unwords ["module", moduleName, "where"]
+      imports = ["\n", "import Lib.Peano", "import Lib.Generator", "\n"]
+  writeFile outFileName . unlines $ moduleHead : imports
+  return $ outFileName
+
+-----------------------------------------------------------------------------------------------------
+
 main :: IO ()
 main = do
   let inDirName   = "resources/"
+      outDirName  = "test/"
       inFileNames = (inDirName ++) <$> ["list", "num", "bool", "programs", "extra", "permSort"]
-      outFileName = "test/Res.hs"
   nameToDef <- initDefsByNames inFileNames
-  let moduleName = "module Res where"
-  let imports = ["\n", "import Lib.Peano", "import Lib.Generator", "\n"]
-  writeFile outFileName . unlines $ moduleName : imports
-
+ 
 -----------------------------------------------------------------------------------------------------
+-- Appendo
 -----------------------------------------------------------------------------------------------------
 
--- vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-  let minmaxoProgram = createProgram nameToDef "minmaxo" ["a", "b", "min", "max"]
--- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  appendoFileName <- initModule outDirName "Appendo"
+  let appendoProgram = createProgram nameToDef "appendo" ["x", "y", "xy"]
+
+  let appendoIIO = mkToHsText appendoProgram ["x", "y"]
+  putStrLn appendoIIO
+  appendFile appendoFileName appendoIIO
+
+  let appendoOOI = mkToHsText appendoProgram ["xy"]
+  putStrLn appendoOOI
+  appendFile appendoFileName appendoOOI
+
+  let appendoIOO = mkToHsText appendoProgram ["x"]
+  putStrLn appendoIOO
+  appendFile appendoFileName appendoIOO
+
+  let appendoOII = mkToHsText appendoProgram ["y", "xy"]
+  putStrLn appendoOII
+  appendFile appendoFileName appendoOII
+
+  let appendoOIO = mkToHsText appendoProgram ["y"]
+  putStrLn appendoOIO
+  appendFile appendoFileName appendoOIO
+
+  let appendoIOI = mkToHsText appendoProgram ["x", "xy"]
+  putStrLn appendoIOI
+  appendFile appendoFileName appendoIOI
 {-
-  let minmaxoIIOO = mkToHsText minmaxoProgram ["a", "b"]
-  putStrLn minmaxoIIOO
-  appendFile outFileName minmaxoIIOO
+  let appendoIII = mkToHsText appendoProgram ["x", "y", "xy"]
+  putStrLn appendoIII
+  appendFile appendoFileName appendoIII
 
-  let minmaxoOOII = mkToHsText minmaxoProgram ["min", "max"]
-  putStrLn minmaxoOOII
-  appendFile outFileName minmaxoOOII
+  let appendoOOO = mkToHsText appendoProgram []
+  putStrLn appendoOOO
+  appendFile appendoFileName appendoOOO
 -}
-
-  let minmaxoIOIO = mkToHsText minmaxoProgram ["a", "min"]
-  putStrLn minmaxoIOIO
-  appendFile outFileName minmaxoIOIO
-
-{-
-  let minmaxoOOOO = mkToHsText minmaxoProgram []
-  putStrLn minmaxoOOOO
-  appendFile outFileName minmaxoOOOO
-
-  let minmaxoIIII = mkToHsText minmaxoProgram ["a", "b", "min", "max"]
-  putStrLn minmaxoIIII
-  appendFile outFileName minmaxoIIII
--}
------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------
-{-
--- vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-  let leoProgram = createProgram nameToDef "leo" ["x", "y", "b"]
--- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-  let leoIIO = mkToHsText leoProgram ["x", "y"]
-  putStrLn leoIIO
-  appendFile outFileName leoIIO
-
-  let leoOOI = mkToHsText leoProgram ["b"]
-  putStrLn leoOOI
-  appendFile outFileName leoOOI
-
-  let leoIOI = mkToHsText leoProgram ["x", "b"]
-  putStrLn leoIOI
-  appendFile outFileName leoIOI
-
-  let leoOII = mkToHsText leoProgram ["y", "b"]
-  putStrLn leoOII
-  appendFile outFileName leoOII
-
-  let leoIOO = mkToHsText leoProgram ["x"]
-  putStrLn leoIOO
-  appendFile outFileName leoIOO
-
-  let leoOIO = mkToHsText leoProgram ["y"]
-  putStrLn leoOIO
-  appendFile outFileName leoOIO
-
-  let leoIII = mkToHsText leoProgram ["x", "y", "b"]
-  putStrLn leoIII
-  appendFile outFileName leoIII
-
-  let leoOOO = mkToHsText leoProgram []
-  putStrLn leoOOO
-  appendFile outFileName leoOOO
--}
------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------
-
-{-
--- vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-  let permSortProgram = createProgram nameToDef "permSort" ["l", "sorted"]
--- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-  let permSortIO = mkToHsText permSortProgram ["l"]
-  putStrLn permSortIO
-  appendFile outFileName permSortIO
--}
------------------------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------
 
