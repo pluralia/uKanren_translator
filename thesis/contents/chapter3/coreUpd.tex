@@ -1,0 +1,271 @@
+\subsection{Проблемы аннотирования нормализованной программы}
+\label{lab:problems}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Несколько вызовов в одном дизъюнкте}
+\label{lab:disjPerm}
+
+Существуют отношения, точная аннотация которых невозможна без полного перебора возникающих вариантов или пользовательских аннотаций. 
+Один из видов таких отношений --- отношения, содержащие несколько вызовов в одном дизъюнкте.
+Пример такого отношения приведен на рисунке~\ref{lst:reloDEF}.
+
+\begin{figure}[h!]
+  \begin{center}
+  \begin{minipage}{0.18\textwidth}
+  \begin{lstlisting}[language=Haskell, frame=single, numbers=left,numberstyle=\small, firstnumber=29, escapechar=|]
+  $rel^o$ $x$ $y$ $z$ =
+    $f^o$ $x$ $y$ $\vee$
+    $h^o$ $z$ $y$ $\vee$
+    $g^o$ $x$ $z$
+    \end{lstlisting}
+  \end{minipage}
+  \end{center}
+  \caption{Пример программы на \miniKanren{} с несколькими вызовами в одном дизъюнкте}
+  \label{lst:reloDEF}
+\end{figure}
+
+Пусть $y$ --- входная переменная.
+В этом случае порядок вычисления вызовов $f^o$ и $h^o$ не зависит друг от друга, но зависит от направления вычисления $g^o$.
+Оно не может вычисляться до вычисления $f^o$ и $h^o$ (неизвестны входные переменные), но может вычисляться между ними ($g^o \ x \ ?$ или $g^0 \ ? \ z$) или после (выполнять роль предиката: $g^o \ x \ y$).
+
+Пример такого поведения можно увидеть при аннотировании $revers^o$.
+Аннотирование того же определения $revers^o$, что было рассмотрено на рисунке~\ref{lst:reversoOIANN}, в направлении $revers^o \ x \ ?$, приведено на рисунке~\ref{lst:reversoIOANNfail}).
+
+\begin{figure}[h!]
+  \begin{center}
+  \begin{minipage}{0.35\textwidth}
+  \begin{lstlisting}[language=Haskell, frame=single, numbers=left,numberstyle=\small, firstnumber=33, escapechar=|]
+  $revers^o$ $x^0$ $y^1$ =
+    ($x^0$ $\equiv$ [] $\wedge$ $y^1$ $\equiv$ []) $\vee$ |\label{line:reversoIOANNfail2}|
+    ($fresh$ [$h$, $t$, $r$] (
+        $x^0$ $\equiv$ $h^1$ : $t^1$ $\wedge$ |\label{line:reversoIOANNfail4}|
+        $append^o$ $r^{2}$ $[h^1]$ $y^{2}$ |\label{line:reversoIOANNfail5}|
+        $revers^o$ $t^1$ $r^{2}$ $\wedge$ |\label{line:reversoIOANNfail6}|
+    ))
+    \end{lstlisting}
+  \end{minipage}
+  \end{center}
+  \caption{Результат аннотирования отношения $revers^o \ x \ ?$ с порядком вызовов $append^o$-$revers^o$}
+  \label{lst:reversoIOANNfail}
+\end{figure}
+
+Во втором дизъюнкте в начале определяются аннотации переменных $h$ и $t$ в строке~\ref{line:reversoIOANNfail4} --- затем они распространяются на последующие вызовы.
+Входным является только второй аргумент, поэтому необходимо проаннотировать тело $append^o \ ? \ y \ ?$ (см. рисунок~\ref{lst:appendoOIOANNfail}).
+Аннотация $append^o \ ? \ y \ ?$ завершится неудачией: строках~\ref{line:appendoOIOANNfail4} и~\ref{line:appendoOIOANNfail5} остались переменные, проаннотированные $Undef$.
+Причина в том, что при таком направлении не существует возможности узнать значения (а, значит, и время связывания) переменных $h$, $x$ и $z$ (данная проблема обсуждается в следующем подразделе).
+Аннотирование $revers^o \ x \ ?$ завершится успешно, однако, при трансляции невозможно получить работающую программу, так как неуспешно завершилось аннотирование $append^o \ ? \ y \ ?$. 
+
+\begin{figure}[h!]
+  \begin{center}
+  \begin{minipage}{0.40\textwidth}
+  \begin{lstlisting}[language=Haskell, frame=single, numbers=left,numberstyle=\small, firstnumber=40, escapechar=|]
+  $append^o$ $x^1$ $y^0$ $z^1$ =
+    ($x^1$ $\equiv$ [] $\wedge$ $y^1$ $\equiv$ $z^0$) $\vee$ |\label{line:appendoOIOANNfail2}|
+    ($fresh$ [$h$, $t$, $r$] (
+        $x^{Undef}$ $\equiv$ $h^{Undef}$ : $t^1$ $\wedge$ |\label{line:appendoOIOANNfail4}|
+        $z^{Undef}$ $\equiv$ $h^{Undef}$ : $r^1$ $\wedge$ |\label{line:appendoOIOANNfail5}|
+        $append^o$ $t^1$ $y^0$ $r^1$ |\label{line:appendoOIOANNfail6}|
+    ))
+    \end{lstlisting}
+  \end{minipage}
+  \end{center}
+  \caption{Результат аннотирования отношения $append^o \ ? \ y \ ?$}
+  \label{lst:appendoOIOANNfail}
+\end{figure}
+
+На рисунке~\ref{lst:reversoIOANN} приведён результат аннотирования в случае другого порядка вызовов: теперь $revers^o$ происходит перед $append^o$.
+
+\begin{figure}[h!]
+  \begin{center}
+  \begin{minipage}{0.4\textwidth}
+  \begin{lstlisting}[language=Haskell, frame=single, numbers=left,numberstyle=\small, firstnumber=47, escapechar=|]
+  $revers^o$ $x^0$ $y^1$ =
+    ($x^0$ $\equiv$ [] $\wedge$ $y^1$ $\equiv$ []) $\vee$ |\label{line:reversoIOANN2}|
+    ($fresh$ [$h$, $t$, $r$] (
+        $x^0$ $\equiv$ $h^1$ : $t^1$ $\wedge$ |\label{line:reversoIOANN4}|
+        $revers^o$ $t^4$ $r^3$ $\wedge$ |\label{line:reversoIOANN5}|
+        $append^o$ $r^3$ $[h^2]$ $y^0$ |\label{line:reversoIOANN6}|
+    ))
+    \end{lstlisting}
+  \end{minipage}
+  \end{center}
+  \caption{Результат аннотирования отношения $revers^o \ x \ ?$ с порядком вызовов $revers^o$-$append^o$}
+  \label{lst:reversoIOANN}
+\end{figure}
+
+Строка~\ref{line:reversoIOANN5} содержит рекурсивный вызов того же направления, что и исходное отношение --- так становится известна переменная $r$.
+Аннотирование будет успешно завершено аннотированием вызова $append^o \ ? \ ? \ z$ (см. рисунок~\ref{lst:appendoOOIANN}) в строке~\ref{line:reversoIOANN6}.
+
+Для решения проблемы нескольких вызовов в одном дизъюнкте предложено решение с перестановками конъюнктов.
+Для каждого дизъюнкта аннотируего отношения создаётся несколько его версий при помощи функции $makeInvokesPermutations$.
+Каждая версия отличается очередной перестановкой вызовов.
+Далее происходит запуск аннотирования дизъюнкта на каждой из версий до тех пор, пока либо аннотирование закончится успехом (проверка данного факта осуществляется с помощью функции $isSuccessfulAnnotation$), либо будут просмотрены все возможные версии.
+В последнем случае считается, что аннотирование не успешно.
+Описанный алгоритм находится на рисунке~\ref{alg:annotateDisjWithSomeInvokes}.
+Алгоритм использует функцию $annotateDisj$, приведенную на рисунке~\ref{alg:annotateDisj}.
+
+\begin{figure}[h!]
+  \begin{center}
+  \begin{minipage}{1\textwidth}
+\begin{algorithm}[H]
+  \KwIn{$disj$ --- дизъюнкт; $stack$ --- стек вызовов}
+  \KwOut{$disj$ --- проаннотированный дизъюнкт; $stack$ --- стек вызовов}
+  $backUpStack \gets stack$\;
+  \For {$disj~\KwFrom~makeInvokesPermutations(disj)$} {
+    $(disj,~stack) \gets annotateDisj(disj,~stack)$\;
+    \eIf {$isSuccessfulAnnotation(stack)$} {
+      \Return {$(disj,~stack)$}
+    } {
+      $stack \gets backUpStack$
+    }
+    \Return {($disj,~backUpStack$)}
+  }
+\end{algorithm}
+  \end{minipage}
+  \end{center}
+  \caption{Алгоритм $annotateDisjWithSomeInvokes$ для аннотирования дизъюнкта с несколькими вызовами отношений}
+  \label{alg:annotateDisjWithSomeInvokes}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Зависимость $fresh$-переменных только друг от друга}
+\label{lab:gen}
+
+Причина, по которой невозможно проаннотировать $append^o \ ? \ y \ ?$ (см. рисунок~\ref{lst:appendoOIOANNfail}) --- $fresh$-переменные, которые зависят только друг от друга.
+В данном примере это переменные $h$, $x$ и $z$.
+$h$ встречается в двух унификациях, но проаннотировать её невозможно.
+В строке~\ref{line:appendoOIOANNfail4} она унифицируется с переменной $x$, а в строке~\ref{line:appendoOIOANNfail5} --- с переменной $z$.
+$x$, и $z$ являются выходными ($fresh$-переменными) и их значения остаются неизвестными, так как они не присутствуют в последнем конъюнкте (строка~\ref{line:appendoOIOANNfail6}).
+
+Таким образом, не существует возможности проаннотировать $fresh$-переменные, зависящие друг от друга, так как они никогда не станут известны и останутся свободными.
+В \miniKanren{} такие переменные могут принимать все допустимые значения.
+Чтобы решить проблему зависимости $fresh$-переменных только друг от друга, сымитируем подход \miniKanren{}, добавив генерацию оставшихся свободными переменных.
+Под \emph{добавлением генерации} понимается добавление в дизъюнкт нового конъюнкта --- унификации целевой переменной со специальным термом-конструктором вида $C~gen~[]$ (в конкретном синтаксисе $<gen:>$).
+Здесь подразуменвается, что слово $gen$ зарезервировано и не используется как название какого-либо конструктора в исходной программе.
+В этом случае аннотация такой переменной будет являться аннотацией константы и равняться $1$.
+
+\begin{figure}[h!]
+  \begin{center}
+  \begin{minipage}{1.1\textwidth}
+\begin{algorithm}[H]
+  \KwIn{$stack$ --- стек вызовов}
+  \KwOut{$stack$ --- стек вызовов с добавленной генерацией}
+  \For {$(nameDirection,~goal)~\KwFrom~stack$} {
+    \For {$unif~\KwFrom~goal$} {
+      \If {$containsUndefAnnotations(unif)$} {
+        $(left,~right) \gets unif$\;
+        $subst \gets isSubsetOf(left,~right)$\;
+        $termWithVarsForGeneration \gets null$\;
+        \eIf {$isNull(subst)$} {
+          $termWithVarsForGeneration \gets right$
+        } {
+          $termWithVarsForGeneration \gets left$
+        }
+        \For {$(var,~ann)~\KwFrom~termWithVarsForGeneration$} {
+          \If {$ann~=~Undef$} {
+            $unif \gets (unif~\wedge~(V~var~:=:~C~gen~[])))$
+          }
+        }
+        \KwBreak
+      }
+    }
+  }
+\end{algorithm}
+  \end{minipage}
+  \end{center}
+  \caption{Алгоритм $addGeneration$ для добавления генерации зависимых друг от друга $fresh$-переменных}
+  \label{alg:addGeneration}
+\end{figure}
+
+Псевдокод алгоритма добавления генерации находится на рисунке~\ref{alg:addGeneration}.
+Он использует функцию $isSubsetOf$, приведенную на рисунке~\ref{alg:isSubsetOf}.
+
+Первый шаг для генерации --- проаннотировать программу без генерации по алгоритму аннотирования, приведённому на рисукнке~\ref{alg:annotate}, чтобы выяснить, какие переменные проаннотировать не удалось.
+Для каждого определения из полученного стека вызовов, содержащего $Undef$-аннотации: для каждой унификации, если она содержит непроаннотированные переменные ($containsUndefAnnotations$), добавить генерацию.
+
+Если унификация содержит непроаннотированные переменные, то она содержит их в обеих частях.
+Нет смысла генерировать переменные обеих частей: переменные одной части станут известны, если станут известны переменные другой.
+Будем генерировать переменные той части унификации, которая является частным случаем другой.
+
+Рассмотрим, как по двум термам определить, является ли первый из них частным случаем второго (см. псевдокод на рисунке~\ref{alg:isSubsetOf}).
+
+\begin{figure}[h!]
+  \begin{center}
+  \begin{minipage}{1.1\textwidth}
+\begin{algorithm}[H]
+  \KwIn{($left,~right$) --- два терма: левая и правая часть унификации}
+  \KwOut{$subst$ --- список пар переменная-терм, являющийся подстановкой подтермов второго терма вместо переменных первого терма (возвращает $null$, если подстановки не существует)}
+  $subst \gets []$\;
+  \Switch{$(left,~right)$} {
+    \Case{$((var,~\_) \gets isVariable(left),~\_)$} {
+      $term \gets getTermByVar(subst,~var)$\;
+      \eIf {$isNull(term)$} {
+        \If {$term~\neq~right$} {
+          \Return {$null$}
+        }
+      } {
+        $subst \gets insert(subst,~var,~right)$\;
+      }
+      \Return {$subst$}
+    }
+    \Other{
+      \Return {$null$}
+    }
+  }
+\end{algorithm}
+  \end{minipage}
+  \end{center}
+  \caption{Алгоритм $isSubsetOf$ для определения того, является ли первый входной терм частным случаем второго}
+  \label{alg:isSubsetOf}
+\end{figure}
+
+Заведём пустую подстановку: список пар переменная-терм.
+Если первый терм является частным случаем второго, то результатом алгоритма будет подстановка соответствующих подтермов второго терма вместо переменных первого терма.
+Возможным следующие варианты.
+\begin{itemize}
+    \item Первый терм --- переменная $var$, второй --- терм $right$ (может быть и переменной, и конструктором).
+    По переменной $var$ попробуем получить терм подстановки $term$.
+    Если это удалось сделать, сравним полученный терм с $term$ --- в случае совпадения вернём текущую подстановку, иначе искомой подстановки не существует и первый подтерм не является подтермом второго.
+    Если $right$ в подстановке не нашлось, добавим в неё пару $(var,~right)$.
+    \item Случая двух конструкторов для нормализованной программы нет.
+    \item В оставшихся случаях искомой подстановки заведомо не существует.
+\end{itemize}
+
+После добавления генерации необходимо запустить алгоритм аннотирования~\ref{alg:annotate} снова для того, чтобы проаннотировать сгенерированные переменные и распространить их аннотации на всё отношение.
+Шаг ``генерация-аннотация'' нужно повторять до достижения неподвижной точки: после генерации при повторном аннотировании может появиться возможность проаннотировать вызов, который до этого был на полностью неопределённых переменных.
+Для аннотирования тела этого вызова также может потребоваться генерация.
+Результат аннотирования отношения $append^o \ ? \ y \ ?$ с добавлением генерации приведен на рисунке~\ref{lst:appendoOIOANN}.
+
+\begin{figure}[h!]
+  \begin{center}
+  \begin{minipage}{0.4\textwidth}
+  \begin{lstlisting}[language=Haskell, frame=single, numbers=left,numberstyle=\small, firstnumber=54, escapechar=|]
+  $append^o$ $x^1$ $y^0$ $z^1$ =
+    ($x^1$ $\equiv$ [] $\wedge$ $y^1$ $\equiv$ $z^0$) $\vee$ |\label{line:appendoOIOANN2}|
+    ($fresh$ [$h$, $t$, $r$] (
+        $h^1$ $\equiv$ $<gen:>$ $\wedge$ |\label{line:appendoOIOANN4}|
+        $x^2$ $\equiv$ $h^1$ : $t^1$ $\wedge$ |\label{line:appendoOIOANN5}|
+        $z^2$ $\equiv$ $h^1$ : $r^1$ $\wedge$ |\label{line:appendoOIOANN6}|
+        $append^o$ $t^1$ $y^0$ $r^1$ |\label{line:appendoOIOANN7}|
+    ))
+    \end{lstlisting}
+  \end{minipage}
+  \end{center}
+  \caption{Результат аннотирования отношения $append^o \ ? \ y \ ?$ c добавлением генерации}
+  \label{lst:appendoOIOANN}
+\end{figure}
+
+Генерация позволила проаннотировать $append^o \ ? \ y \ ?$. 
+В этом случае аннотирование $revers^o$ с последовательностью вызовов $append^o$-$revers^o$ (рисунок~\ref{lst:reversoIOANNfail}) становится успешным.
+В итоге сущесвует два способа трансляции $revers^o \ x \ ?$.
+Так, для примера на рисунке~\ref{lst:reversoIOANNfail} из вызовов будут сгенерированны две функции: предикат $revers^o$ и $append^o \ ? \ y \ ?$.
+Для отношения на рисунке~\ref{lst:reversoIOANN}) --- только $append^o \ ? \ ? \ z$.
+
+Генерация переменных способна влиять на направления вычислений конъюнктов, поэтому её стоит применять только по необходимости.
+Чтобы уменьшить это влияние, будем генерировать переменные только в случае не успешного аннотирования.
+Для этого запустим алгоритм генерации после запуска алгоритма перебора перестановок конъюнктов.
+На примере $revers^o$: из двух вариантов предпочтительной последовательностью конъюнктов обладает вариант на рисунке~\ref{lst:reversoIOANN} --- $revers^o$ с последовательностью вызовов $revers^o$-$append^o$.
+Аннотирование второго дизъюнкта на рисунке~\ref{lst:reversoIOANNfail} завершится неудачей, поэтому произойдёт перестановка вызовов и получим последовательность конъюнктов другого варианта.
+Это приведёт к успешному аннотированию и генерация не понадобится.

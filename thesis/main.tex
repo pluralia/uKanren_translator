@@ -1,5 +1,6 @@
 \documentclass[14pt]{spbau-diploma}
 
+\usepackage[]{algorithm2e}
 \usepackage{tikz}
 \usepackage{listings}
 \lstdefinestyle{mycode}{
@@ -24,16 +25,35 @@
 \newcommand{\prolog}{\textsc{Prolog}}
 \newcommand{\scheme}{\textsc{Scheme}}
 \newcommand{\logen}{\textsc{LOGEN}}
+\newcommand{\ocanren}{\textsc{OCanren}}
+\newcommand{\curry}{\textsc{Curry}}
 \newcommand{\github}{\textsc{GitHub}}
 \lstset{mathescape=true}
 
 \usepackage{amsmath}
+\usepackage{amssymb}
+
+\usepackage{amsthm}
+
+
+\usepackage{algorithm2e}
+\SetKwInput{KwIn}{Вход}
+\SetKwInput{KwOut}{Результат}
+\SetKw{KwFrom}{from}
+\SetKw{KwAnd}{and}
+\SetKw{KwBreak}{break}
+\SetAlgorithmName{Алгоритм}{алгоритм}{Список алгоритмов}
+
+
+\newtheorem{theorem}{Утверждение}
 
 \begin{document}
+\sloppy
 
-\input{contents/head}
+%\input{contents/head}
 
 \maketitle
+\setcounter{page}{4}
 \tableofcontents
 
 \input{contents/intro}
@@ -48,7 +68,5 @@
 
 \bibliographystyle{ugost2008ls}
 \bibliography{contents/bibfile}
-
-\input{contents/appendices}
 
 \end{document}

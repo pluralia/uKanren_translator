@@ -1,0 +1,107 @@
+\subsection{Примеры аннотирования}
+
+В этом разделе приведено несколько примеров процесса аннотирования отношений.
+Числа над переменными обозначают аннотации.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Отношение $append^o \ x \ y \ ?$}
+
+$append^o$ --- отношение связывающее три списка, первые два из которых являются конкатенацией третьего.
+Его аннотирование в направлении $append^o \ x \ y \ ?$ представлено на рисунке~\ref{lst:appendoIIOANN}.
+
+\begin{figure}[h!]
+  \begin{center}
+  \begin{minipage}{0.35\textwidth}
+  \begin{lstlisting}[language=Haskell, frame=single, numbers=left,numberstyle=\small, firstnumber=8, escapechar=|]
+  $append^o$ $x^0$ $y^0$ $z^1$ =
+    ($x^0$ $\equiv$ [] $\wedge$ $y^0$ $\equiv$ $z^1$) $\vee$ |\label{line:appendoIIOANN2}|
+    ($fresh$ [$h$, $t$, $r$] (
+        $x^0$ $\equiv$ $h^1$ : $t^1$ $\wedge$ |\label{line:appendoIIOANN4}|
+        $z^3$ $\equiv$ $h^1$ : $r^2$ $\wedge$ |\label{line:appendoIIOANN5}|
+        $append^o$ $t^1$ $y^0$ $r^2$          |\label{line:appendoIIOANN6}|
+    ))
+    \end{lstlisting}
+  \end{minipage}
+  \end{center}
+  \caption{Результат аннотирования отношения $append^o \ x \ y \ ?$}
+  \label{lst:appendoIIOANN}
+\end{figure}
+
+В данном случае переменные $x$ и $y$ являются входными. 
+При начале работы алгоритма, такого отношения и направления нет в стеке вызовов, поэтому они добавляются в стек и рекурсивно запускается аннотирование цели $append^o$.
+Так как $x$ и $y$ --- входные переменные, их аннотации известны и равны $0$.
+
+В начале аннотирования первого дизъюнкта переменные $x$ и $y$ известны --- остаётся определить $z$.
+Аннотация $z$ равна $1$, так как $z$ унифицируется с $y$, аннотация которой --- $0$.
+
+Во втором дизъюнкте аннотации $h$ и $t$ в строке~\ref{line:appendoIIOANN4} можно установить, так как известна аннотация $x$.
+Аннотация $h$ распространяется на~\ref{line:appendoIIOANN5} строку, а аннотация $t$ --- на~\ref{line:appendoIIOANN6} строку.
+Рекурсивный вызов отношения в строке ~\ref{line:appendoIIOANN6} согласован с имеющимся в стеке, поэтому можно проаннотировать переменную $r$.
+Распространяем аннотацию $r$ в строке~\ref{line:appendoIIOANN5}.
+На последнем шаге аннотируем $z$ в строке~\ref{line:appendoIIOANN4}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Отношение $append^o \ ? \ ? \ z$}
+
+В случае аннотирования $append^o \ ? \ ? \ z$ входной считается переменная $z$ (см. рисунок~\ref{lst:appendoOOIANN}).
+
+\begin{figure}[h!]
+  \begin{center}
+  \begin{minipage}{0.35\textwidth}
+  \begin{lstlisting}[language=Haskell, frame=single, numbers=left,numberstyle=\small, firstnumber=15, escapechar=|]
+  $append^o$ $x^1$ $y^1$ $z^0$ =
+    ($x^1$ $\equiv$ [] $\wedge$ $y^1$ $\equiv$ $z^0$) $\vee$ |\label{line:appendoOOIANN2}|
+    ($fresh$ [$h$, $t$, $r$] (
+        $x^3$ $\equiv$ $h^1$ : $t^2$ $\wedge$ |\label{line:appendoOOIANN4}|
+        $z^0$ $\equiv$ $h^1$ : $r^1$ $\wedge$ |\label{line:appendoOOIANN5}|
+        $append^o$ $t^2$ $y^2$ $r^1$          |\label{line:appendoOOIANN6}|
+    ))
+    \end{lstlisting}
+  \end{minipage}
+  \end{center}
+  \caption{Результат аннотирования отношения $append^o \ ? \ ? \ z$}
+  \label{lst:appendoOOIANN}
+\end{figure}
+
+Пусть $append^o$ уже в стеке и $z$ проаннотирована.
+В первом дизъюнкте $x$ и $y$ имеют аннотацию~$1$: $y$ унифицируется со входной переменной $z$, а $x$ --- с константой.
+Во втором дизъюнкте на первом шаге становятся известны аннотации $h$ и $r$ (строка~\ref{line:appendoOOIANN5}).
+Аннотация $r$ распространяется на строку~\ref{line:appendoOOIANN6}. 
+Отношение с согласованным направлением есть в стеке, поэтому можно аннотировать $t$ и $y$.
+Далее аннотация $t$ распространяется на строку~\ref{line:appendoOOIANN4}, и на последнем шаге аннотируется $x$. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsubsection{Отношение $revers^o \ ? \ y$}
+
+Ещё один пример --- отношение $revers^o$.
+Оно связывает два списка, получающиеся переворачиванием друг друга.
+Его определение приведено в листинге~\ref{lst:reversoOIANN}.
+
+\begin{figure}[h!]
+  \begin{center}
+  \begin{minipage}{0.35\textwidth}
+  \begin{lstlisting}[language=Haskell, frame=single, numbers=left,numberstyle=\small, firstnumber=22, escapechar=|]
+  $revers^o$ $x^1$ $y^0$ =
+    ($x^1$ $\equiv$ [] $\wedge$ $y^0$ $\equiv$ []) $\vee$ |\label{line:reversoOIANN2}|
+    ($fresh$ [$h$, $t$, $r$] (
+        $x^5$ $\equiv$ $h^2$ : $t^4$ $\wedge$ |\label{line:reversoOIANN4}|
+        $append^o$ $r^3$ $[h^2]$ $y^0$ |\label{line:reversoOIANN5}|
+        $revers^o$ $t^4$ $r^3$ $\wedge$ |\label{line:reversoOIANN6}|
+    ))
+    \end{lstlisting}
+  \end{minipage}
+  \end{center}
+  \caption{Результат аннотирования отношения $revers^o \ ? \ y$}
+  \label{lst:reversoOIANN}
+\end{figure}
+
+Вызов $revers^o \ ? \ y$ добавляется в стек вызовов, а переменная $y$ инициализируется как $y$ входная.
+При аннотировании второго дизъюнкта на первом шаге можно попытаться проаннотировать только вызов $append^o$ в строке~\ref{line:reversoOIANN5} --- известна $y$.
+Такого отношения в стеке вызовов нет, поэтому необходимо добавить его и вызвать аннотирование.
+Это и есть вызов $append^o \ ? \ ? \ z$, рассмотренный выше (см. рисунок~\ref{lst:appendoOOIANN}).
+Аннотирование $append^o$ позволяет определить аннотации переменных $r$ и $h$ и распространить их по другим конъюнктам.
+На следующем шаге происходит вычисление аннотации переменной $t$ рекурсивного вызова $revers^o$, так как он уже есть в стеке (см. строку~\ref{line:reversoOIANN6}).
+Распространение аннотации $t$ и аннотирование $x$ происходит на следующем шаге в строке~\ref{line:reversoOIANN4}.
